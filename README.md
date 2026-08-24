@@ -91,6 +91,21 @@ POST /analyze
 
 Later you can add `byfounders.json`, `antler.json`, etc. without changing the pipeline.
 
+## Email intake (Gmail as the trigger)
+
+A founder emails a deck; the pipeline runs. `scripts/gmail_intake.gs` is a
+standalone Google Apps Script on a 5-minute time-driven trigger that searches
+the mailbox for unprocessed `Pitch Deck` mail, labels each thread
+`PitchDeckProcessed`, and drops the PDF attachments into the Drive `Inbox/`
+folder the poller already watches.
+
+Nothing in `app/` changed: `Inbox/` is still the only work queue, and a deck
+dropped there by hand behaves identically. It is a standalone script rather than
+a Gmail add-on because add-ons have no new-mail trigger at all, and are capped at
+30 s per execution and one installable-trigger run per hour.
+
+Setup (about 10 minutes, all in a browser): **[docs/gmail-intake-setup.md](docs/gmail-intake-setup.md)**.
+
 ## What is intentionally NOT in the base
 
 - multi-agent orchestration
