@@ -1,254 +1,244 @@
-# Parallel Build Plan — 3-Person Split
+# Parallel Build Plan — 3-Person Split (v2: event-driven pipeline)
 
-Goal: let 3 people build independently, then merge into one working prototype before the TechBBQ 2026 demo (Aug 26–27).
+**Supersedes the earlier upload+dashboard architecture.** The product is now a background pipeline, not a UI: a pitch deck lands in a watched Google Drive folder (standing in for "received a pitch-deck email" — see Phase 0), gets triaged, filed, deep-analyzed, and pushed to Attio + Slack with no human in the loop until the Slack ping.
 
-Read `docs/BUILD_PLAN.md` and `docs/data-extraction.md` first — this plan operationalizes both into three isolated workstreams. Where the two source docs disagree (see Phase 1), this plan states the resolved decision; **BUILD_PLAN.md wins on scope disputes.**
+```text
+New file in Drive "Inbox/" (simulates: pitch-deck email received)
+        ↓
+Parse PDF (existing Railway PDF reader adapter — unchanged)
+        ↓
+Triage agent: relevant / review / not_relevant  ──not_relevant──▶ move to Not-Relevant/, STOP
+        ↓ relevant or review
+Move file to Relevant/ or Review/  (Google Drive = the "flag")
+        ↓
+Deep-dive agent: TAM / competitors / founder profile, vs. pre-selected firm criteria
+        ↓
+Save record to Attio
+        ↓
+Slack notification: company name, one-liner, founder bio one-liner + LinkedIn, website link
+```
 
-Each phase below is self-contained enough to hand to a fresh Claude session — it names the exact files, the exact docs to re-read, and a verification checklist.
+Read `docs/BUILD_PLAN.md` and `docs/data-extraction.md` first — most of the analysis logic they describe is unchanged; only the trigger and the output surface changed. Where they disagree on scope, BUILD_PLAN.md wins (see Phase 1's resolved decision, carried over from v1 and still in force).
 
----
-
-## Phase 0 — Documentation Discovery (done, consolidated here)
-
-**Sources read:** `docs/BUILD_PLAN.md`, `docs/data-extraction.md`, `README.md`, `app/models.py`, `app/agent.py`, `app/main.py`, `app/adapters/pdf_reader.py`, `app/adapters/supabase_store.py`, `app/config.py`, `app/firm_profiles.py`, `supabase/schema.sql`, `firm_profiles/generic_seed.json`, `tests/test_models.py`, `requirements.txt`, `railway.json`.
-
-**Current state:**
-- FastAPI skeleton exists and runs: `GET /health`, `POST /parse`, `POST /analyze?firm=...` (`app/main.py`).
-- `ParsedDeck` / `Source` / `Finding` / `FounderQuestion` / `FirmProfile` models already exist in `app/models.py`. `Source` already enforces the evidence rule via a `model_validator` (external → needs `url`, deck → needs `page`) — do not remove this.
-- `MockDiligenceAgent` (`app/agent.py`) is a placeholder that proves plumbing only. It implements a `DiligenceAgent` Protocol — the real agent must implement the same `async def analyze(self, deck: ParsedDeck, firm: FirmProfile | None) -> DiligenceReport` signature.
-- `PdfReaderClient._normalize()` (`app/adapters/pdf_reader.py:25`) is the **only** place to change if the Railway PDF reader's JSON shape differs from the guessed `text`/`full_text`/`content` + `pages` shape.
-- `SupabaseStore` (`app/adapters/supabase_store.py`) auto-disables when `SUPABASE_URL`/`SUPABASE_KEY` are unset — safe to develop without Supabase.
-- No frontend exists yet. No `anthropic` package in `requirements.txt` yet.
-- `app/config.py:14` has `anthropic_model: str = ""` — unset, needs a real default.
-
-**Allowed APIs for the extraction agent (verified against the current Anthropic Python SDK docs this session):**
-- Model id: `claude-sonnet-5` (set as the default in `app/config.py`; swap to `claude-opus-5` only if quality requires it close to demo time — this is a cost/quality dial, not a correctness issue).
-- Structured JSON output: `client.messages.parse(model=..., max_tokens=..., messages=[...], output_format=SomeBaseModel)` → `response.parsed_output` is a validated instance. This is the current, non-deprecated pattern (not the old `output_format=` top-level param on `.create()`, and not hand-parsing free text).
-- Web research: declare `{"type": "web_search_20260209", "name": "web_search"}` in `tools` (optionally `max_uses`, `allowed_domains`/`blocked_domains`). Results come back as a `web_search_tool_result` content block; on success `.content` is a **list** of `web_search_result` items, on failure `.content` is a **single error object** — branch on that shape before indexing, don't assume success.
-- **Anti-pattern:** don't hand-roll HTTP calls to `api.anthropic.com` — use the official `anthropic` SDK (add it to `requirements.txt`). Don't invent tool names/params not listed above.
-- **Known gap to verify live (not assumed):** the exact field names on a `web_search_result` item (title/url/snippet) were not enumerated in the docs consulted this session. Whoever implements Track B must print one real `web_search_tool_result` block during development and confirm field names before hardcoding access to them.
-
-**Not for the build (per BUILD_PLAN.md "What Not to Build"):** multi-agent orchestration, vector DB, full IC memo generation, auth, tenant isolation, CRM/portfolio features, **automated investment scoring / composite scores / complex weighting formulas**.
+Each phase below is self-contained enough to hand to a fresh Claude session.
 
 ---
 
-## Phase 1 — Freeze the Shared Contract (prerequisite, ~30–60 min, whole team or one person)
+## Phase 0 — Documentation Discovery (consolidated)
 
-This is the one piece that **cannot** be parallelized safely — all three tracks build against it. Do this first, commit it, then fork into Phase 2.
+**Sources read this round:** the v1 plan (superseded), the live MCP tool schemas for `mcp__claude_ai_Google_Drive__*`, and the deferred-tool listing for Gmail/Slack in this session.
 
-### Resolved scope decision
+**Resolved architecture decisions (confirmed with the team):**
+1. **Trigger substrate is Google Drive, not the real Gmail API.** This session's Gmail MCP connector exposes only `authenticate`/`complete_authentication` — no read/list/label tools. Building real Gmail push notifications (Cloud Pub/Sub + domain verification) is not a two-day hackathon task. Per explicit instruction, the whole receive→triage→flag loop runs against Drive folders instead: dropping a PDF into `Inbox/` simulates "a pitch-deck email arrived." Wiring a real Gmail-to-Drive attachment forwarder is future work, out of scope here.
+2. **Triage gates the pipeline.** `not_relevant` → the file is filed and the pipeline stops (no deep analysis, no Attio, no Slack). `relevant` and `review` both continue to the deep-dive agent, Attio, and Slack.
+3. **Orchestration is a plain Python module in the existing repo** (no n8n) — a polling loop, since the existing FastAPI/Railway stack already deploys and no one has to learn a new tool mid-hackathon.
 
-`docs/data-extraction.md` proposes a numerically weighted 8-category founder scorecard and an overall weighted composite score. `docs/BUILD_PLAN.md` explicitly forbids "automated investment scoring systems" and "complex weighting formulas" under **What Not to Build**.
+**Verified Google Drive MCP facts (`mcp__claude_ai_Google_Drive__*`) — this is the mechanism for "flag it in the respective folder":**
+- `update_file(fileId, parentId, title?)` — **moving a file is done by setting `parentId` to the destination folder's id; it replaces the existing parent.** This is the exact "flag into relevant/review/not-relevant" primitive.
+- `search_files(query)` supports a structured query language, including `parentId = '<folder_id>'` and `modifiedTime` comparisons — use this to poll `Inbox/` for new files (`parentId = '<inbox_id>'`).
+- `create_file(title, parentId?, mimeType?)` — set `mimeType: "application/vnd.google-apps.folder"` to create the four folders (`Inbox`, `Relevant`, `Review`, `Not-Relevant`) if they don't already exist.
+- `download_file_content` / `get_file_metadata` — fetch bytes + filename for a claimed file (schemas not re-verified here; pull them via ToolSearch when implementing Track A — same MCP server, same pattern as the four tools above).
+- **No MCP tool moves/copies in bulk or watches for changes** — the poller must call `search_files` on an interval and diff against what it already claimed.
 
-**Decision (confirmed with the team): qualitative only.** Extract the same categories/pillars data-extraction.md identifies, but as `status` (`supported` / `questionable` / `red_flag` / `unknown`) + evidence text — no numeric weights, no per-category scores, no composite score anywhere in the schema. This keeps BUILD_PLAN's constraint intact and is faster to build correctly in two days.
+**Slack:** only `authenticate`/`complete_authentication` are exposed via MCP in this session — no `chat.postMessage`-equivalent tool. Real messages must go through Slack's own Web API (`chat.postMessage`) or, faster for a demo, an **Incoming Webhook** URL (no bot scopes to configure). Use the `slack:slack-messaging` / `slack:block-kit` / `slack:slack-api` skills at build time for the exact request shape — don't invent the payload format here.
 
-### What to implement
+**Attio:** no MCP tool available at all in this session. Track C must call Attio's REST API directly with an API key. **Do not invent endpoint paths or field names** — fetch Attio's current developer docs at build time (`https://developers.attio.com`) before writing the client code. This is a hard "verify, don't assume" gap.
 
-Extend `app/models.py` (additive to what exists — keep `Source`, `Finding`, `FounderQuestion`, `FirmProfile`, `ParsedDeck`, `DeckPage` as-is):
+**Anthropic API facts (unchanged from v1, still authoritative):**
+- Model id: `claude-sonnet-5` — set as the default in `app/config.py` (`anthropic_model` is currently `""`).
+- Structured JSON output: `client.messages.parse(model=..., max_tokens=..., messages=[...], output_format=SomeBaseModel)` → `response.parsed_output`.
+- Web research: `{"type": "web_search_20260209", "name": "web_search"}` in `tools`. Result block `web_search_tool_result`: `.content` is a **list** on success, a **single error object** on failure — branch before indexing.
+- **Anti-pattern:** don't hand-roll HTTP calls to the Anthropic API — use the `anthropic` SDK (not yet in `requirements.txt`, add it).
+- **Known gap to verify live:** exact `web_search_result` field names — print one real block during Track B's development before hardcoding field access.
+
+**Existing repo state that's still valid and reused as-is:**
+- `ParsedDeck` / `Source` / `Finding` / `FirmProfile` / `DeckPage` in `app/models.py`, including the `Source` evidence-rule validator — keep.
+- `PdfReaderClient` (`app/adapters/pdf_reader.py`) — the Railway PDF reader adapter is trigger-agnostic; reuse unchanged regardless of whether the deck bytes came from a file upload or a Drive download.
+- `FirmProfile` / `firm_profiles/generic_seed.json` / `load_firm()` — this is exactly the "pre-selected criteria" the deep-dive agent should score against. No new concept needed; the pipeline just loads one fixed profile at startup instead of taking it as a request query param (there's no human making a per-request choice anymore). Use an env var, e.g. `PIPELINE_FIRM_PROFILE=generic_seed`.
+- `app/main.py`'s `/parse` and `/analyze` HTTP endpoints — **keep them.** They're still the fastest way to manually test the deep-dive agent in isolation without running the whole Drive pipeline.
+
+**Dropped from v1 (explicitly out of scope now):** the web dashboard / frontend track, Supabase as primary storage (Drive is now the file store; Supabase can stay as a nice-to-have audit log if time allows, but is not required for the demo).
+
+**Still not for the build** (per BUILD_PLAN.md "What Not to Build" — unchanged): multi-agent orchestration beyond the two agents named here, vector DB, full IC memo generation, auth, tenant isolation, portfolio management, **automated composite/weighted scoring**.
+
+---
+
+## Phase 1 — Freeze the Shared Contract (prerequisite, ~30–45 min, whole team or one person)
+
+Everything from v1's Phase 1 schema decision still holds — **qualitative status fields only, no numeric weights, no composite score** (BUILD_PLAN.md's "What Not to Build" vs. data-extraction.md's weighted scorecard was already resolved this way; nothing about the pipeline change reopens it).
+
+### New: shared contracts for the delivery step
+
+Slack and Attio both need a small, display-ready summary that isn't already in the deep-dive schema. Add to `app/models.py`:
 
 ```python
-class TamSamSomBreakdown(BaseModel):
-    tam_stated: str | None = None
-    tam_methodology: Literal["top_down", "bottom_up", "both", "unclear"] = "unclear"
-    sam_stated: str | None = None
-    som_stated: str | None = None
-    som_pct_of_sam_flagged: bool = False  # True if outside the credible ~1-15% SOM/SAM range, or not derivable
-    external_validation_present: bool = False
-    summary: str
-    sources: list[Source] = Field(default_factory=list)
-
-
-class Competitor(BaseModel):
+class FounderSummary(BaseModel):
     name: str
-    funding_info: str | None = None
-    differentiation_claimed: str
-    is_direct: bool
-    verified_externally: bool
+    bio_one_liner: str
+    linkedin_url: HttpUrl | None = None
 
 
-class CompetitorAnalysis(BaseModel):
-    competitors: list[Competitor] = Field(default_factory=list)
-    why_now_why_us: str | None = None
-    missing_direct_competitor_flag: bool = False
-    summary: str
-    sources: list[Source] = Field(default_factory=list)
+class CompanySummary(BaseModel):
+    name: str
+    one_liner: str
+    website_url: HttpUrl | None = None
 
 
-FounderCategory = Literal[
-    "industry_experience", "vision_strategy", "track_record",
-    "learning_agility", "team_leadership", "network_strength",
-    "resilience", "execution_strength",
-]
-
-
-class FounderCategoryNote(BaseModel):
-    category: FounderCategory
-    status: Literal["supported", "questionable", "red_flag", "unknown"]
-    evidence: str
-
-
-class FounderProfile(BaseModel):
-    categories: list[FounderCategoryNote]
-    founder_market_fit: Literal["strong", "moderate", "weak", "unclear"]
-    summary: str
-    sources: list[Source] = Field(default_factory=list)
+class TriageResult(BaseModel):
+    flag: Literal["relevant", "review", "not_relevant"]
+    reason: str
 ```
 
-Update `MetricResult.name` to cover the remaining pillars from data-extraction.md's "Additional Metrics Worth Capturing":
+### Extend `DiligenceReport`
 
-```python
-class MetricResult(BaseModel):
-    name: Literal[
-        "problem_validation", "traction", "business_model_clarity",
-        "cap_table_legal", "ask_and_use_of_funds", "non_obvious_insight",
-    ]
-    status: Literal["supported", "questionable", "red_flag", "unknown"]
-    summary: str
-    sources: list[Source] = Field(default_factory=list)
-```
-
-Add an optional pillar tag to `Finding` so the dashboard can group/filter red flags by widget:
-
-```python
-    pillar: Literal[
-        "tam", "competitors", "founder", "traction",
-        "business_model", "legal", "ask", "other",
-    ] | None = None
-```
-
-Replace `DiligenceReport`:
+Rename the existing `founder: FounderProfile` field to `founder_profile` (avoids colliding with the new `founders` list — one is the qualitative 8-category scorecard, the other is the short bio+LinkedIn summary for notifications) and add `company` / `founders`:
 
 ```python
 class DiligenceReport(BaseModel):
-    company_name: str | None = None
+    company: CompanySummary
     overview: str
     tam_sam_som: TamSamSomBreakdown
     competitors: CompetitorAnalysis
-    founder: FounderProfile
+    founder_profile: FounderProfile
+    founders: list[FounderSummary] = Field(default_factory=list)
     additional_metrics: list[MetricResult] = Field(default_factory=list)
     key_findings: list[Finding] = Field(max_length=5)
     founder_questions: list[FounderQuestion] = Field(max_length=5)
 ```
 
+(`TamSamSomBreakdown`, `CompetitorAnalysis`, `FounderProfile`, `MetricResult`, `Finding.pillar` are unchanged from v1 — see git history of this file if you need the exact class bodies again, or just re-derive them from `docs/data-extraction.md` per the qualitative-only rule above.)
+
 ### Verification checklist
 
-- `python -c "import app.models"` imports cleanly.
-- `pytest tests/test_models.py` still passes unchanged (the `Source` evidence-rule tests must not need edits).
-- Add one fixture: hand-write a single valid `DiligenceReport` JSON (can be fictional data) and confirm `DiligenceReport.model_validate(fixture)` succeeds. **Save this fixture to `tests/fixtures/sample_report.json`** — Track C needs it immediately and Track B needs it as a target shape.
-- Also hand-write one `ParsedDeck` fixture and save to `tests/fixtures/sample_deck.json` — Track B needs this so it never has to wait on Track A.
+- `pytest tests/test_models.py` still passes.
+- Update `tests/fixtures/sample_report.json` (or create it, if v1's Phase 1 wasn't executed yet) to include `company` and `founders` — this is what Track C builds against, so it must have realistic-looking fictional values for all four Slack fields (name, one-liner, founder bio, LinkedIn URL, website URL).
+- Update/create `tests/fixtures/sample_deck.json` — same as v1, unchanged purpose (lets Track B build without a live Drive/Railway connection).
+- `TriageResult.model_validate({"flag": "relevant", "reason": "..."})` succeeds; an invalid `flag` value raises.
 
 ### Anti-pattern guards
 
-- Do not add a numeric `score`, `weight`, or `composite_score` field anywhere — that reopens the scope conflict this phase just resolved.
-- Do not rename or remove the existing `Source`/`Finding`/`FounderQuestion` fields that BUILD_PLAN's evidence rule and API examples already rely on.
-- Once committed, this schema is frozen for the parallel phase. If a track discovers the schema doesn't fit mid-build, stop and re-sync with the other two — don't silently diverge.
+- No numeric fields anywhere in `CompanySummary`/`FounderSummary`/`TriageResult` — these are display/routing metadata, not scores.
+- Don't let `founders`/`company` silently become the only place company info lives — `overview` and the pillar summaries still carry the substantive analysis; the summary models exist purely for the notification/CRM step.
+- Once committed, this is frozen for Phase 2 — same rule as v1.
 
 ---
 
 ## Phase 2 — Parallel Tracks (3 people, fully independent once Phase 1 is committed)
 
-Each track can be handed to its own fresh chat session. Each only needs: this file, the fixtures from Phase 1, and its own section below.
-
-### Track A — Ingestion ("pitch deck → readable data")
+### Track A — Drive Trigger, Triage, and Flagging
 
 **Owner:** Person 1
-**Files:** `app/adapters/pdf_reader.py`, `app/adapters/supabase_store.py`, `supabase/schema.sql`, `app/main.py` (`/parse`, `/analyze` only — don't touch the agent call)
+**Files:** new `app/adapters/drive_store.py`, new `app/triage.py`, `app/adapters/pdf_reader.py` (reused, not modified unless the Railway contract changed)
 
 **What to implement:**
-1. Verify the real Railway PDF reader contract (BUILD_PLAN.md "Step 1"). POST an actual pitch deck PDF to `https://pdfreader-production-29d1.up.railway.app` + `PDF_READER_PATH` (default `/parse`, confirm via env) and inspect the real JSON keys returned.
-2. If the real shape differs from the guessed `text`/`full_text`/`content` + `pages` (str list or dict list with `page`/`page_number`, `text`/`content`), fix **only** `PdfReaderClient._normalize()` at `app/adapters/pdf_reader.py:25`. Do not change `ParsedDeck`'s field names — that's part of the frozen contract from Phase 1.
-3. Wire Supabase (BUILD_PLAN.md "Step 2"): apply `supabase/schema.sql`, set `SUPABASE_URL`/`SUPABASE_KEY`, confirm `SupabaseStore.save()` (`app/adapters/supabase_store.py:19-43`) actually uploads to the `pitch-decks` bucket and inserts into `pitch_decks`.
-4. Optional, only if time allows: improve `full_text` readability (e.g., join pages as `## Slide {n}\n{text}` markdown) — content-only change, does not touch the schema.
-5. Produce 2–3 real `ParsedDeck` JSON fixtures from actual sample decks and hand them to Track B (in addition to the hand-written Phase 1 fixture).
+1. Create the four Drive folders if absent (`create_file` with `mimeType: application/vnd.google-apps.folder`): `Inbox`, `Relevant`, `Review`, `Not-Relevant`. Record their folder IDs (env vars: `DRIVE_INBOX_ID`, `DRIVE_RELEVANT_ID`, `DRIVE_REVIEW_ID`, `DRIVE_NOT_RELEVANT_ID`).
+2. `app/adapters/drive_store.py`: a small adapter wrapping the Google Drive MCP tools —
+   - `list_inbox() -> list[file]` via `search_files(query="parentId = '<inbox_id>'")`
+   - `download(file_id) -> bytes` via `download_file_content`
+   - `move(file_id, dest_folder_id)` via `update_file(fileId=file_id, parentId=dest_folder_id)` — confirmed this replaces the existing parent (i.e., moves, not copies).
+3. `app/triage.py`: a cheap, fast `TriageAgent` — **one** Claude call (no web search, no multi-step research), given the parsed deck text + the pipeline's fixed `FirmProfile.criteria`, that returns a `TriageResult` (`client.messages.parse(output_format=TriageResult)`). This is deliberately cheaper/faster than Track B's deep-dive — don't reuse the expensive research pipeline here.
+4. The poller (can live in `app/pipeline.py` alongside Track A's code, or Track A can stub the deep-dive call as a TODO for Phase 3 to wire in):
+   - Poll `Inbox/` on an interval (e.g. every 30–60s via a simple `while True: ...; time.sleep(N)` loop, or a Railway cron job).
+   - For each new file: download → parse via existing `PdfReaderClient` → triage → `move()` to the matching folder.
+   - No dedup database needed — a single sequential poller naturally can't double-process a file, since a moved file no longer matches the `Inbox/` query on the next poll.
 
-**Docs to cite:** `docs/BUILD_PLAN.md` §"Step 1", §"Step 2"; `README.md` "Base API" and "Existing PDF reader" sections; `app/adapters/pdf_reader.py`; `supabase/schema.sql`.
+**Docs to cite:** Phase 0 above (Drive tool facts); `docs/BUILD_PLAN.md` §"Step 1" (PDF reader contract, unchanged); `app/adapters/pdf_reader.py`.
 
 **Verification:**
-- `curl -F file=@sample.pdf https://pdfreader-production-29d1.up.railway.app/parse` returns 200 with usable text.
-- Local `POST /parse` on a running `uvicorn app.main:app` returns a valid `ParsedDeck`.
-- With `SUPABASE_URL`/`SUPABASE_KEY` set, `POST /analyze` returns a non-null `deck_id` and a row appears in `pitch_decks`.
+- Drop a real pitch-deck PDF into the `Inbox/` folder manually; confirm the poller picks it up, calls the Railway PDF reader successfully, and the file ends up in exactly one of `Relevant/`, `Review/`, `Not-Relevant/` within one poll interval.
+- Confirm a `not_relevant` file does NOT trigger any downstream call (log this explicitly so it's demoable).
+- Confirm re-running the poller after a file has moved does not re-process it.
 
-**Anti-pattern guards:** don't invent new Railway endpoints; don't add auth/tenant logic (explicitly out of scope); don't rename `ParsedDeck`/`DeckPage` fields.
+**Anti-pattern guards:** don't build real Gmail push/pull for this hackathon (Phase 0 already ruled this out); don't run the expensive web-search deep-dive inside the triage call; don't invent a `move`/`watch` Drive tool that doesn't exist — `update_file`'s `parentId` is the only move primitive available.
 
 ---
 
-### Track B — Extraction & Scoring Agent ("structure data for the dashboard")
+### Track B — Deep-Dive Analysis Agent
 
 **Owner:** Person 2
-**Files:** new `app/diligence.py` (replaces `app/agent.py`'s `MockDiligenceAgent` usage), `app/config.py`, `requirements.txt`
+**Files:** new `app/diligence.py`, `app/config.py`, `requirements.txt`
+
+This is almost entirely the same work as v1's Track B — if that was already built, extend it; if not, build it fresh. The only new requirement is populating `company` and `founders` (Phase 1's new fields) using web-search-grounded facts, since Slack/Attio need them.
 
 **What to implement:**
-1. `pip install anthropic`, add it to `requirements.txt`, and set `app/config.py:14` `anthropic_model` default to `"claude-sonnet-5"`.
-2. Implement `ClaudeDiligenceAgent` matching the existing `DiligenceAgent` Protocol in `app/agent.py` (`async def analyze(self, deck: ParsedDeck, firm: FirmProfile | None) -> DiligenceReport`), in a new `app/diligence.py`.
-3. Two-call pattern (avoids mixing forced structured output with an open-ended tool loop in one call):
-   - **Research call:** loop `client.messages.create(...)` with `tools=[{"type": "web_search_20260209", "name": "web_search"}]` and a system prompt scoped to BUILD_PLAN.md §6 (TAM credibility, competitor landscape, founder background) — instruct Claude to only assert externally-sourced claims it can back with a URL from a `web_search_tool_result`.
-   - **Structured extraction call:** `client.messages.parse(model=..., messages=[deck text + research transcript], output_format=DiligenceReport)` → `response.parsed_output`.
-4. **Known pitfall to guard against:** `output_format`'s auto-derived JSON schema captures structural types but not `Source`'s custom cross-field rule (external → needs `url`). `client.messages.parse` runs full pydantic validation client-side when building `parsed_output`, so a `pydantic.ValidationError` is possible if Claude emits an external source with no URL. Wrap the parse call and retry once with a corrective follow-up message before giving up.
-5. Fold in `FirmProfile.criteria` (when present) as an emphasis note in the system prompt — must remain optional; the generic (no-firm) path must still work end-to-end (BUILD_PLAN.md §10).
-6. Derive `key_findings` (≤5) and `founder_questions` (≤5) as part of the same structured call — don't add a third LLM call just for these, per BUILD_PLAN.md §5/§8's requirements (non-generic, evidence-traceable questions).
-7. Develop and test entirely against `tests/fixtures/sample_deck.json` from Phase 1/Track A — do not block on a live Railway or Supabase connection.
+1. `pip install anthropic`; add to `requirements.txt`; set `app/config.py` `anthropic_model` default to `"claude-sonnet-5"`.
+2. `ClaudeDiligenceAgent.analyze(deck: ParsedDeck, firm: FirmProfile | None) -> DiligenceReport` in `app/diligence.py`, matching the `DiligenceAgent` Protocol in `app/agent.py`.
+3. Two-call pattern:
+   - **Research call:** `client.messages.create(..., tools=[{"type": "web_search_20260209", "name": "web_search"}])`, system prompt scoped to BUILD_PLAN.md §6 (TAM, competitors, founder) **plus** finding the company's website URL and each founder's LinkedIn URL and a one-line bio — these three are new requirements driven by the Slack notification spec.
+   - **Structured extraction call:** `client.messages.parse(model=..., messages=[...], output_format=DiligenceReport)` → `response.parsed_output`.
+4. **Pitfall:** `client.messages.parse` runs full pydantic validation client-side, including `Source`'s custom cross-field validator — wrap in try/except and retry once with a corrective message if validation fails (e.g. an external source missing a URL).
+5. Load the firm profile once at pipeline startup from `PIPELINE_FIRM_PROFILE` env var (default `generic_seed`) via the existing `load_firm()` — no per-request firm selection anymore.
+6. If a founder's LinkedIn URL or the company website can't be found via web search, leave the field `None` rather than guessing — Track C's Slack message must handle missing links gracefully (see Track C).
+7. Develop against `tests/fixtures/sample_deck.json` from Phase 1 — don't block on Track A's live Drive polling.
 
-**Docs to cite:** `docs/data-extraction.md` (this track's extraction spec — TAM/SAM/SOM, competitors, founder categories, additional metrics — read qualitatively per Phase 1's resolved decision, ignore its numeric weights); `docs/BUILD_PLAN.md` §5 (Evidence Rule), §6, §8; `app/agent.py` (Protocol to implement); `app/models.py` (the `Source` validator you must satisfy).
+**Docs to cite:** `docs/data-extraction.md` (qualitative reading, per Phase 1); `docs/BUILD_PLAN.md` §5, §6, §8; `app/agent.py`; `app/models.py`.
 
 **Verification:**
-- Extend `tests/test_models.py`-style tests to cover the new models from Phase 1.
-- Run `ClaudeDiligenceAgent.analyze()` against the fixture deck(s); confirm output validates as `DiligenceReport`, has ≤5 findings, ≤5 questions, and every external `Source` carries a real, non-hallucinated-looking URL (spot-check manually).
-- Confirm the generic (`firm=None`) path produces a full report with no firm profile passed.
+- `ClaudeDiligenceAgent.analyze()` against the fixture deck produces a valid `DiligenceReport` with ≤5 findings, ≤5 questions, every external `Source` carrying a real-looking URL.
+- `company.one_liner`, `company.website_url` (or `None`), and at least one `FounderSummary` are populated for a real sample deck with a findable founder LinkedIn presence.
+- Generic (no firm profile edge case aside — firm is now always loaded from env, so just confirm the pipeline still runs if `PIPELINE_FIRM_PROFILE` is unset and `load_firm(None)` returns `None`).
 
-**Anti-pattern guards:** no multi-agent orchestration, no vector DB (BUILD_PLAN "What Not to Build"); don't hand-parse free-text JSON when `client.messages.parse` exists; don't skip the evidence-rule retry; don't assume `web_search_result` field names — print one real block first (see Phase 0's "Known gap").
+**Anti-pattern guards:** same as v1 — no multi-agent orchestration, no vector DB, no hand-parsed JSON, no skipped evidence-rule retry, no assumed `web_search_result` field names.
 
 ---
 
-### Track C — Dashboard ("visualize the found data")
+### Track C — Attio + Slack Delivery
 
 **Owner:** Person 3
-**Files:** new top-level `frontend/` (or `web/`) directory — a separate deployable unit, not entangled with the Python backend.
+**Files:** new `app/adapters/attio_client.py`, new `app/adapters/slack_notifier.py`
 
 **What to implement:**
-1. Build entirely against `tests/fixtures/sample_report.json` from Phase 1 — never blocked on Track A or B being finished.
-2. Screens/widgets, one per pillar in `DiligenceReport` (per BUILD_PLAN.md "Step 7" and data-extraction.md's "Suggested Dashboard Schema"):
-   - Upload pitch deck → `POST /analyze?firm=...`
-   - Company overview
-   - TAM/SAM/SOM card: stated values, methodology tag, `som_pct_of_sam_flagged` badge
-   - Competitors table: name, funding info, differentiation, direct/adjacent flag, verified badge, plus `why_now_why_us`
-   - Founder panel: 8 categories with status badges + `founder_market_fit`
-   - Additional metrics panel (the 6 `MetricResult` entries)
-   - Key Findings/Risks list (≤5, `risk_level` + `pillar` tag)
-   - Founder Questions (≤5, one-click copy)
-   - Evidence drill-down: every pillar's `sources` list, rendered as deck-page references or external links
-3. No numeric score/gauge anywhere — Phase 1 deliberately excluded composite scoring; render qualitative status badges (`supported`/`questionable`/`red_flag`/`unknown`) instead.
-4. Framework choice is Person 3's call given the 2-day clock; whatever is chosen, keep it its own directory/package so backend and frontend stay independently deployable, matching the adapter-isolation approach already used in `app/adapters/`.
-5. Use the `dataviz` skill for status-badge/stat-tile/table visual design consistency.
+1. **Attio:** before writing any code, fetch `https://developers.attio.com`'s current API reference for creating/updating a company (and person) record and authenticating with an API key — do not guess endpoint paths or field names. Implement `save_to_attio(report: DiligenceReport) -> None` (or return the created record id) in `app/adapters/attio_client.py`, mapping `report.company` (and `report.founders`, if Attio's schema supports a linked person/founder object) onto whatever Attio's verified object schema requires.
+2. **Slack:** for demo speed, use an **Incoming Webhook** (one URL, no bot token/scopes) unless the team already has a Slack app with a bot token set up — check with the team first. Implement `send_slack_notification(report: DiligenceReport) -> None` in `app/adapters/slack_notifier.py`, posting exactly the four required fields:
+   - Company name (`report.company.name`)
+   - One-liner (`report.company.one_liner`)
+   - Founder bio one-liner + LinkedIn link, per founder in `report.founders` (if a `linkedin_url` is `None`, show the bio without a link rather than a broken/empty link)
+   - Website link (`report.company.website_url`, omit the line if `None`)
+   Use the `slack:block-kit` skill for a clean formatted message (header block for company name, section blocks for the rest) rather than a single unformatted text blob.
+3. Build and test both adapters entirely against `tests/fixtures/sample_report.json` from Phase 1 — never blocked on Track A or B.
+4. Both functions should be called only for `relevant`/`review` decks (Phase 0's triage-gate decision) — that gating logic lives in the Phase 3 pipeline wiring, not inside these adapters; keep these two functions triage-agnostic (just "given a report, deliver it").
 
-**Docs to cite:** `docs/BUILD_PLAN.md` §"Step 7"; `docs/data-extraction.md` "Suggested Dashboard Schema"; `README.md` "Base API" (`POST /analyze?firm=...` → `{deck_id, report}` shape).
+**Docs to cite:** Phase 0 above (why there's no MCP shortcut here); `slack:block-kit`, `slack:slack-messaging`, `slack:slack-api` skills (load at build time for exact payload shapes); Attio's live developer docs (fetch at build time, don't rely on any cached knowledge of Attio's API).
 
 **Verification:**
-- Dashboard renders fully against the fixture JSON with zero backend running.
-- Every pillar's evidence drill-down opens and shows its `sources`.
-- Findings/questions lists never render more than 5 items even if fed a malformed fixture (defensive slicing, don't trust upstream blindly).
+- Posting `tests/fixtures/sample_report.json` through `send_slack_notification` produces a real message in the team's Slack channel with all 4 fields correctly rendered, including the graceful-missing-link case (test with a fixture variant that has `website_url: null`).
+- `save_to_attio` against the same fixture produces a real, inspectable record in the team's Attio workspace.
+- Both functions raise/log clearly (not silently swallow) on an auth or schema error — this is the last step before the demo's payoff moment, so failures must be loud during development.
 
-**Anti-pattern guards:** no login/auth; no portfolio/CRM features; no score gauges/numbers (explicitly excluded in Phase 1).
+**Anti-pattern guards:** don't build a bespoke Slack bot with interactive components — a webhook post is enough for a notification; don't invent Attio field names before checking the docs; no numeric score anywhere in the Slack message or Attio record (Phase 1's resolved decision still applies to the output surface too).
 
 ---
 
 ## Phase 3 — Synthesis (whole team, short session)
 
-1. Merge Track A's adapter changes, Track B's `app/diligence.py` + any `app/models.py` follow-ups, and Track C's `frontend/` directory.
-2. In `app/main.py`, swap `MockDiligenceAgent` → `ClaudeDiligenceAgent` (`app/main.py:15`); firm-profile loading (`app/main.py:41`) is unchanged.
-3. Point Track C's upload form / fetch calls at the real backend (local `uvicorn` first, then the Railway deployment URL).
-4. Run one real pitch deck end-to-end: upload → `/analyze` (generic_seed) → dashboard renders. If time remains, demo the optional firm-profile diff (BUILD_PLAN.md "Step 8") by adding a second firm JSON to `firm_profiles/` and re-running the same deck.
-5. Update `README.md`'s "Next code task" section (currently says to replace `MockDiligenceAgent`) to reflect the shipped state.
+1. Create `app/pipeline.py` that ties the three tracks together:
+   ```text
+   for file in drive_store.list_inbox():
+       pdf_bytes = drive_store.download(file.id)
+       deck = pdf_reader.parse(pdf_bytes, file.name)           # Track A (reused adapter)
+       triage = triage_agent.classify(deck, firm)              # Track A
+       drive_store.move(file.id, folder_for(triage.flag))      # Track A
+       if triage.flag == "not_relevant":
+           continue
+       report = diligence_agent.analyze(deck, firm)            # Track B
+       attio_client.save_to_attio(report)                      # Track C
+       slack_notifier.send_slack_notification(report)          # Track C
+   ```
+2. Wire `PIPELINE_FIRM_PROFILE`, `DRIVE_*_ID`, Attio API key, and Slack webhook URL into `app/config.py`/env.
+3. Decide how the poller runs for the demo: a simple long-lived process (`python -m app.pipeline`) is enough — no need for a Railway cron job unless the team wants it always-on beyond the demo.
+4. End-to-end demo run: drop a real pitch deck into `Inbox/`, watch it get parsed, triaged, moved, deep-analyzed, and confirm both a new Attio record and a Slack message appear.
+5. Update `README.md` to describe the new pipeline flow (it currently describes the old upload+dashboard flow).
 
 **Verification checklist (final gate before demo):**
-- `pytest` passes across all new and existing tests.
-- Full flow works end-to-end with a real sample deck, in front of the group, before the demo slot.
-- `GET /health` still returns `{"ok": true}` on the Railway deployment.
-- No numeric composite score, weighting formula, auth, or multi-agent orchestration snuck back in during merge (re-check against BUILD_PLAN's "What Not to Build" and Phase 1's resolved decision).
+- `pytest` passes.
+- One full real-deck run works end-to-end, watched live by the group, before the demo slot.
+- A `not_relevant` deck is demoed too, to show the gate actually stops the pipeline (no Attio record, no Slack message, file correctly filed).
+- No numeric composite score, weighting formula, auth system, or extra agents beyond triage + deep-dive snuck in during merge.
 
-**Anti-pattern guard:** if a mismatch between tracks surfaces during merge, fix the producer or consumer — don't silently patch the frozen Phase 1 schema without a 2-minute sync with whoever else depends on it.
+**Anti-pattern guard:** if Attio's or Slack's real API shape didn't match what Track C assumed while building against the fixture, fix it during this phase — don't ship a Track C that only ever ran against its own fixture.
 
 ---
 
 ## Optional — Demo Framing
 
-`docs/judges_profiles.md` profiles the likely TechBBQ 2026 judges (Kellezi/byFounders, Milo, den Teuling). Not a build task, but worth 5 minutes before the demo: Kellezi responds to technical depth and authenticity over polish, den Teuling to provable ROI over hype — frame the walkthrough (not the product itself) accordingly.
+`docs/judges_profiles.md` profiles the likely TechBBQ 2026 judges (Kellezi/byFounders, Milo, den Teuling). Not a build task, but worth 5 minutes before the demo: Kellezi responds to technical depth and authenticity over polish, den Teuling to provable ROI over hype — frame the walkthrough (not the product itself) accordingly. The "drop a deck in Drive, get a Slack ping with an Attio record already created" moment is the demo's payoff — sequence the walkthrough so that's the visible climax.
