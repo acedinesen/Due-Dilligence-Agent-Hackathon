@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     # Track C — Attio CRM delivery (app/adapters/attio_client.py).
     attio_api_key: str | None = None
 
+    # Track C — Slack delivery (app/adapters/slack_notifier.py).
+    # Preferred: an incoming webhook. The URL is itself the credential (no
+    # auth header, no channel argument), so it must never be logged.
+    slack_webhook_url: str | None = None
+    # Alternative: a bot token posting via chat.postMessage. Both of these are
+    # needed together; a webhook URL, if set, wins over them.
+    slack_bot_token: str | None = None
+    slack_channel_id: str | None = None
+
     supabase_url: str | None = None
     supabase_key: str | None = None
     supabase_bucket: str = "pitch-decks"
