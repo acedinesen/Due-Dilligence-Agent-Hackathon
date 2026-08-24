@@ -7,6 +7,7 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 
 from app.adapters.attio_client import save_to_attio
 from app.adapters.pdf_reader import PdfReaderClient
+from app.adapters.slack_notifier import send_slack_notification
 from app.adapters.supabase_store import SupabaseStore
 from app.config import settings
 from app.diligence import ClaudeDiligenceAgent, DiligenceError
@@ -20,6 +21,21 @@ store = SupabaseStore()
 # The real deep-dive agent (was MockDiligenceAgent). Its Anthropic client is
 # built lazily, so constructing it here never needs an API key at import time.
 agent = ClaudeDiligenceAgent()
+
+
+def _slack_configured() -> bool:
+    """Whether `send_slack_notification` has enough config to post.
+
+    Mirrors the transport selection in app/adapters/slack_notifier.py: a webhook
+    needs no channel, a bot token needs one. Kept in sync deliberately rather
+    than imported, so the notifier stays free of HTTP-layer concerns.
+    """
+    if (settings.slack_webhook_url or "").strip():
+        return True
+    return bool(
+        (settings.slack_bot_token or "").strip()
+        and (settings.slack_channel_id or "").strip()
+    )
 
 
 @app.get("/health")
@@ -48,6 +64,15 @@ async def analyze(
             "to the team CRM. The Drive pipeline always delivers."
         ),
     ),
+    slack: bool = Query(
+        default=False,
+        description=(
+            "Also post the finished report to Slack. Off by default for the same "
+            "reason as `attio`: iterating on a deck here should not spam the "
+            "team channel. Independent of `attio` — either can be requested "
+            "alone, and one failing does not skip the other."
+        ),
+    ),
 ):
     """Run the full deep dive on an uploaded deck.
 
@@ -74,6 +99,31 @@ async def analyze(
                 "ANTHROPIC_API_KEY is not set, so the diligence agent cannot run. "
                 "Set it in the server environment (.env / Railway) and retry. "
                 "Nothing is wrong with the upload."
+            ),
+        )
+
+    # Same reasoning for the delivery credentials: a missing one would otherwise
+    # only surface *after* the full ~5 minute, ~$1 run, reported in the response
+    # body of an analysis the caller asked to have delivered. Refusing up front
+    # costs nothing and never wastes a paid run on an undeliverable request.
+    if attio and not (settings.attio_api_key or "").strip():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "attio=true was requested but ATTIO_API_KEY is not set, so the "
+                "record could not be saved. Set it and retry, or drop attio=true. "
+                "Refusing now rather than after a ~5 minute, ~$1 analysis."
+            ),
+        )
+    if slack and not _slack_configured():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "slack=true was requested but no Slack credential is configured, "
+                "so the notification could not be sent. Set SLACK_WEBHOOK_URL (or "
+                "both SLACK_BOT_TOKEN and SLACK_CHANNEL_ID) and retry, or drop "
+                "slack=true. Refusing now rather than after a ~5 minute, ~$1 "
+                "analysis."
             ),
         )
 
@@ -119,5 +169,19 @@ async def analyze(
             logger.exception("Attio save failed for %s after a successful analysis", deck_id)
             response["attio_url"] = None
             response["attio_error"] = str(exc)
+
+    if slack:
+        # Same rule again, and — as in the pipeline — deliberately not nested
+        # inside the Attio block: the notification carries only fields from the
+        # report, so a CRM failure above must not suppress it.
+        try:
+            await send_slack_notification(report)
+            response["slack_sent"] = True
+        except Exception as exc:
+            logger.exception(
+                "Slack notification failed for %s after a successful analysis", deck_id
+            )
+            response["slack_sent"] = False
+            response["slack_error"] = str(exc)
 
     return response

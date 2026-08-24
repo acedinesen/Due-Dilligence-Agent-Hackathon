@@ -7,6 +7,7 @@ from typing import Literal
 from app.adapters.attio_client import save_to_attio
 from app.adapters.drive_store import DriveStore
 from app.adapters.pdf_reader import PdfReaderClient
+from app.adapters.slack_notifier import send_slack_notification
 from app.agent import DiligenceAgent
 from app.config import settings
 from app.diligence import ClaudeDiligenceAgent
@@ -14,7 +15,6 @@ from app.firm_profiles import load_firm
 from app.models import FirmProfile
 from app.triage import TriageAgent
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("pipeline")
 
 
@@ -37,7 +37,9 @@ async def run_once(
 
     Failure isolation is per-file and per-stage: nothing in here may abort the
     poll loop or the rest of the batch, and no failure may silently discard a
-    finished report (see the Attio handler below).
+    finished report (see the delivery handlers below). The two deliveries —
+    Attio and Slack — are independent of each other: either can fail without
+    suppressing the other.
     """
     inbox_files = await asyncio.to_thread(drive_store.list_inbox, settings.drive_inbox_id)
 
@@ -111,18 +113,27 @@ async def run_once(
 
             # ---- Track C: delivery --------------------------------------------
             # Worst case in the whole pipeline: the analysis above already cost
-            # real money and ~5 minutes, so a transient CRM error must not take
-            # the report with it. Dump the full report JSON at ERROR level so the
-            # run is recoverable straight from the logs, and keep going.
-            # No retry loop here on purpose — save_to_attio already retries
+            # real money and ~5 minutes, so no delivery error may take the report
+            # with it. Two deliveries, two independent try/excepts, neither
+            # gating the other:
+            #   * The CRM record is the durable artefact.
+            #   * The Slack message is how a human finds out the deck was
+            #     processed at all, and it carries only company name, one-liner,
+            #     founder bios and the website link — every one of which comes
+            #     off the report itself, nothing from Attio. So a CRM outage must
+            #     not silence the notification, and a Slack outage must not hide
+            #     a CRM record that was written fine.
+            # No retry loop here on purpose — both adapters already retry
             # internally where retrying is safe.
+            attio_saved = False
             try:
                 attio_url = await save_to_attio(report)
             except Exception:
                 logger.exception(
                     "Attio save FAILED for %s (%s) after a successful analysis — "
-                    "file is already filed under %r in Drive. The report below is "
-                    "the only copy; re-deliver it manually.",
+                    "file is already filed under %r in Drive. Slack delivery is "
+                    "still attempted below. The report dumped next is the only "
+                    "copy; re-deliver it manually.",
                     filename,
                     file_id,
                     triage.flag,
@@ -133,22 +144,42 @@ async def run_once(
                     filename,
                     report.model_dump_json(),
                 )
-                continue
-
-            if attio_url:
-                logger.info("Attio record for %s: %s", report.company.name, attio_url)
             else:
-                logger.warning(
-                    "Attio save for %s returned no web_url — the record may exist "
-                    "but cannot be linked to from here",
-                    report.company.name,
-                )
+                attio_saved = True
+                if attio_url:
+                    logger.info("Attio record for %s: %s", report.company.name, attio_url)
+                else:
+                    logger.warning(
+                        "Attio save for %s returned no web_url — the record may exist "
+                        "but cannot be linked to from here",
+                        report.company.name,
+                    )
 
-            # NOTE: Slack delivery (the other half of Track C, per
-            # docs/track-c-delivery.md) is not wired here because
-            # app/adapters/slack_notifier.py does not exist yet. When it lands it
-            # belongs immediately below, in its own try/except for the same reason
-            # as Attio: a notification failure must not discard a paid-for report.
+            try:
+                await send_slack_notification(report)
+            except Exception:
+                # Deliberately asymmetric with the Attio handler above: the
+                # recovery logging is sized to what is actually at risk. If Attio
+                # holds the report, a failed notification loses nothing but the
+                # ping, so it gets one loud line — dumping the ~18KB report JSON
+                # again would bury the logs for a cosmetic failure. If Attio
+                # failed too, the UNSAVED REPORT dump above is already there,
+                # exactly once, which is what a human needs to re-deliver by
+                # hand. Either way the report is never silently discarded.
+                logger.exception(
+                    "Slack notification FAILED for %s (%s) — %s",
+                    filename,
+                    file_id,
+                    (
+                        "the report is saved in Attio, so this is a "
+                        "notification-only failure"
+                        if attio_saved
+                        else "the Attio save failed too — recover the report from "
+                        "the UNSAVED REPORT line above"
+                    ),
+                )
+            else:
+                logger.info("Slack notification sent for %s", report.company.name)
         except Exception:
             # Catch-all for the cheap stages (download / parse / triage / move) and
             # for genuine bugs. These decks stay in Inbox and are retried next
@@ -177,6 +208,10 @@ def _require_drive_folder_settings() -> None:
 
 
 async def poll_forever() -> None:
+    # Configured here, not at import time: importing this module should not
+    # reconfigure root logging for whatever process happens to import it
+    # (FastAPI, a test run, another script).
+    logging.basicConfig(level=logging.INFO)
     _require_drive_folder_settings()
 
     firm = load_firm(settings.pipeline_firm_profile)
