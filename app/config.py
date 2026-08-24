@@ -17,6 +17,17 @@ class Settings(BaseSettings):
     supabase_key: str | None = None
     supabase_bucket: str = "pitch-decks"
 
+    # Track A — Google Drive trigger, triage & flagging.
+    # Raw JSON content of a service-account key (not a file path), so it can
+    # be set as a single Railway env var without a mounted file.
+    google_service_account_json: str | None = None
+    drive_inbox_id: str | None = None
+    drive_relevant_id: str | None = None
+    drive_review_id: str | None = None
+    drive_not_relevant_id: str | None = None
+    pipeline_firm_profile: str = "generic_seed"
+    pipeline_poll_interval_seconds: float = 45.0
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

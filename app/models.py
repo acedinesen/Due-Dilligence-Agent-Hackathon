@@ -72,3 +72,8 @@ class FirmProfile(BaseModel):
     id: str
     name: str
     criteria: list[str] = Field(default_factory=list)
+
+
+class TriageResult(BaseModel):
+    flag: Literal["relevant", "review", "not_relevant"]
+    reason: str
