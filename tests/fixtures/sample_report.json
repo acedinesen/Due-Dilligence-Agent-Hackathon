@@ -1,0 +1,389 @@
+{
+  "company": {
+    "name": "Thalvik",
+    "one_liner": "Thalvik sells mid-market finance teams a combined corporate-card, invoice-capture and automatic-coding layer that writes continuously to the ERP so the monthly close no longer requires manual reconciliation.",
+    "website_url": null
+  },
+  "overview": "Thalvik is a Copenhagen-based, seed-stage (founded April 2024, 11 people) spend-management startup raising EUR 3.5M at an EUR 18M pre-money valuation, with EUR 1.2M soft-circled from two Nordic funds. It sells a card-issuance + invoice-capture + automatic ledger-coding product to mid-market companies (150-1,500 employees) in the Nordics, DACH and Benelux, and reports EUR 41,300 software MRR plus EUR 9,100 monthly interchange across 34 paying customers as of 30 November 2025. The core wedge claimed is a per-tenant coding engine that proposes ledger accounts/cost centres automatically, differentiating it from card-only or ERP-native alternatives. Independent research could not corroborate the deck's market-size figures, competitive claims, or either founder's professional history; a well-known, well-funded direct competitor (Pleo) headquartered in the same city is entirely absent from the deck's competition slide.",
+  "tam_sam_som": {
+    "tam_stated": "USD 48B \u2014 global spend management and B2B expense software, all company sizes, 2025",
+    "tam_methodology": "both",
+    "sam_stated": "USD 6.2B \u2014 companies of 150-1,500 employees in Nordics, DACH and Benelux, ~61,000 companies at blended USD 102k ACV",
+    "som_stated": "USD 2.9B within three years \u2014 annualised revenue and interchange across the SAM by end of year three",
+    "som_pct_of_sam_flagged": true,
+    "external_validation_present": false,
+    "summary": "The deck shows a top-down TAM (Gartner category revenue plus an interchange pool add-on) and a bottom-up SAM (company count x blended ACV), which is a reasonable structure for pre-seed. However, the SOM of USD 2.9B against a SAM of USD 6.2B implies capturing roughly 47% of the entire addressable market within three years from a base of EUR 41k MRR today \u2014 an extreme and effectively unsupported jump that sits far outside a credible 1-15% band, so it is flagged. None of the headline TAM/SAM/SOM figures, nor the Gartner category definition, nor the PSD2/e-invoicing 'why now' claims, could be independently verified in this research pass (the search budget was exhausted before these checks ran) \u2014 this is a verification gap, not a confirmation or refutation, and should be treated as unresolved rather than accepted at face value.",
+    "sources": []
+  },
+  "competitors": {
+    "competitors": [
+      {
+        "name": "SAP Concur",
+        "funding_info": null,
+        "differentiation_claimed": "Deck claims Concur is enterprise-focused, 6-9 month implementation starting around EUR 60k, no card issuance, no continuous ledger write-back; Thalvik claims to win on time-to-value.",
+        "is_direct": true,
+        "verified_externally": false
+      },
+      {
+        "name": "Legacy ERP add-on modules (Dynamics expense modules, Fortnox add-ons)",
+        "funding_info": null,
+        "differentiation_claimed": "Deck claims these are 'forms over a database' with no card, no point-of-authorisation capture, and no coding intelligence; Thalvik claims to win on 'the actual work.'",
+        "is_direct": false,
+        "verified_externally": false
+      },
+      {
+        "name": "Spreadsheets / shared invoice mailbox",
+        "funding_info": null,
+        "differentiation_claimed": "Deck states this was present in 26 of 34 paying customers before they bought Thalvik; Thalvik claims to win because the controller's own time is the effective budget.",
+        "is_direct": false,
+        "verified_externally": false
+      },
+      {
+        "name": "Pleo",
+        "funding_info": "Reported to have secured a $43 million (EUR 40 million) debt financing facility; described as serving 30,000+ customers, well past seed stage.",
+        "differentiation_claimed": "Not mentioned in the deck. External sources describe Pleo as offering physical, virtual and vendor cards plus expense/invoice management with integrations into NetSuite, Xero and QuickBooks, serving companies from startups to enterprises \u2014 directly overlapping Thalvik's stated card+invoice+ERP wedge and segment.",
+        "is_direct": true,
+        "verified_externally": true
+      }
+    ],
+    "why_now_why_us": "Deck argues timing is driven by PSD2/open-banking rails making ledger-grade transaction data available without a bank partnership, e-invoicing mandates in Germany (2025) and Belgium (2026) forcing AP-stack changes, and flat mid-market finance headcount against rising transaction volume creating budget for automation. This is more specific than a generic 'big market plus AI' pitch, citing named regulatory triggers with dates, but none of these regulatory claims were independently verified in this pass, and the 'why us' argument (a controller-CTO combining ledger closing experience with card-issuing engineering) rests entirely on unverified founder bios.",
+    "missing_direct_competitor_flag": true,
+    "summary": "The deck positions Thalvik against three groups \u2014 SAP Concur (enterprise incumbent), legacy ERP expense add-ons, and spreadsheets/shared mailboxes \u2014 and claims a differentiated 'coding intelligence' wedge that none of them addresses. None of the deck's specific competitive claims (Concur implementation time/pricing, add-on module weaknesses) could be independently verified. More importantly, research surfaced Pleo, a Copenhagen-headquartered, well-capitalized spend-management company serving the same buyer motion (cards + invoices + ERP integrations including NetSuite, Xero) across company sizes that include Thalvik's target segment, with debt financing reported at $43M and 30,000+ customers \u2014 yet Pleo is completely absent from the deck's competition slide. This is a material omission for a same-city, same-buyer-segment competitor.",
+    "sources": [
+      {
+        "type": "deck",
+        "title": "Thalvik seed deck",
+        "evidence": "Competition slide naming SAP Concur, legacy ERP add-ons, and spreadsheets as the three groups Thalvik competes against",
+        "page": 6,
+        "url": null
+      },
+      {
+        "type": "external",
+        "title": "Explore 43 Best Fintech Startups in Copenhagen to watch in 2026",
+        "evidence": "Directory context confirming Copenhagen's active fintech/spend-management startup scene, of which Pleo is a well-known member",
+        "page": null,
+        "url": "https://www.seedtable.com/best-fintech-startups-in-copenhagen"
+      },
+      {
+        "type": "external",
+        "title": "Bulgarian spend management company Payhawk hits $1B valuation. Payhawk competitors include Spendesk, Pleo, Moss, and Soldo. - CB Insights Research",
+        "evidence": "Identifies Pleo, Spendesk, Moss and Soldo as direct competitors within the same spend-management category as Payhawk",
+        "page": null,
+        "url": "https://www.cbinsights.com/research/payhawk-competitors-spendesk-pleo-moss-soldo/"
+      }
+    ]
+  },
+  "founder_profile": {
+    "categories": [
+      {
+        "category": "industry_experience",
+        "status": "questionable",
+        "evidence": "Deck claims CEO ran monthly close for Maersk's terminals division and CTO was a staff engineer on Klarna's card-issuing platform; no external source could confirm either claim, and named-search attempts for both individuals returned no matches."
+      },
+      {
+        "category": "vision_strategy",
+        "status": "questionable",
+        "evidence": "Deck articulates a specific wedge (continuous, tenant-specific coding vs. commoditised card issuance) and a clear reason competitors haven't solved it, but this is entirely self-asserted with no external validation of the stated competitive gap."
+      },
+      {
+        "category": "track_record",
+        "status": "unknown",
+        "evidence": "No independently verifiable prior startup, product-launch, or exit history is given or found for either founder beyond the claimed corporate roles, which are themselves unverified."
+      },
+      {
+        "category": "learning_agility",
+        "status": "unknown",
+        "evidence": "Deck provides no evidence (e.g., pivots, cross-functional moves) bearing on this category, and no external source fills the gap."
+      },
+      {
+        "category": "team_leadership",
+        "status": "questionable",
+        "evidence": "Deck states the CEO led a spend-policy rollout across 14 country entities at Maersk and that two engineers followed the CTO from her previous company, which if true suggests some leadership pull, but neither claim could be externally confirmed."
+      },
+      {
+        "category": "network_strength",
+        "status": "supported",
+        "evidence": "Deck states 6 signed LOIs from accounting firms and an advisor (a partner at a Copenhagen accounting firm) who introduced the first four customers, plus EUR 1.2M soft-circled from two Nordic funds \u2014 these are concrete, named deck facts suggesting an active network, though the LOIs and soft-circle amounts are self-reported and not externally verified."
+      },
+      {
+        "category": "resilience",
+        "status": "unknown",
+        "evidence": "No evidence in the deck or research bearing on how the founders have handled prior setbacks."
+      },
+      {
+        "category": "execution_strength",
+        "status": "supported",
+        "evidence": "Deck reports founder-led sales closing all 34 paying customers, 11% average MoM MRR growth over six months, and a live product with native integrations into four accounting systems plus a NetSuite private beta \u2014 concrete, specific execution evidence, albeit self-reported and not externally audited."
+      }
+    ],
+    "founder_market_fit": "unclear",
+    "summary": "Both founders have plausible, complementary backgrounds as described in the deck \u2014 a controller-turned-CEO with claimed Maersk group-finance experience and a payments engineer CTO with a claimed Klarna card-issuing background \u2014 which if true would be a strong founder-market-fit story. However, independent research could not confirm either founder's identity, employment history, or degree via any public source; searches for both named individuals returned no matching profiles, only unrelated people with similar names. This means the founder narrative currently rests entirely on the deck's own assertions with zero external corroboration, which is a material gap for a story where founder-market fit is the headline argument.",
+    "sources": [
+      {
+        "type": "deck",
+        "title": "Thalvik seed deck",
+        "evidence": "CEO/CTO bios: Maersk group finance and terminals-division close, 14-country spend-policy rollout; Klarna card-issuing staff engineer and merchant settlement tech lead",
+        "page": 9,
+        "url": null
+      },
+      {
+        "type": "external",
+        "title": "Mikkel Johansen - A.P. Moller - Maersk | LinkedIn",
+        "evidence": "A LinkedIn profile for a different Mikkel at Maersk (Investor Relations); does not match the name or role of the deck's 'Mikkel Ravnsborg' and is not presented as the same person",
+        "page": null,
+        "url": "https://www.linkedin.com/in/mikjo/"
+      },
+      {
+        "type": "external",
+        "title": "Aino Lehtinen - Helsinki, Uusimaa, Finland | Professional Profile | LinkedIn",
+        "evidence": "The only Aino Lehtinen LinkedIn profile with an Aalto University connection found describes an Industrial Engineering and Management student with roles at Fortum and Elisa, not payments engineering or Klarna \u2014 does not match the deck's CTO description",
+        "page": null,
+        "url": "https://www.linkedin.com/in/aino-lehtinen-43a649183/"
+      }
+    ]
+  },
+  "founders": [
+    {
+      "name": "Mikkel Ravnsborg",
+      "bio_one_liner": "Claimed six years in A.P. Moller-Maersk group finance running the terminals division's monthly close and leading a 14-country spend-policy rollout, now CEO.",
+      "linkedin_url": null
+    },
+    {
+      "name": "Aino Lehtinen",
+      "bio_one_liner": "Claimed nine years in payments engineering including four years at Klarna as staff engineer on the card-issuing platform and tech lead for merchant settlement, now CTO.",
+      "linkedin_url": null
+    }
+  ],
+  "additional_metrics": [
+    {
+      "name": "problem_validation",
+      "status": "supported",
+      "summary": "Deck cites 40 structured discovery interviews (March-September 2025) with Nordic and German controllers, producing specific findings (6-9 days/month on reconciliation, 18% of card transactions missing receipts at 30 days, 3 of 40 companies found duplicate subscription spend above EUR 100k at audit). This is a reasonably specific and sized qualitative validation exercise for pre-seed, though it is entirely self-reported and unaudited.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "40 discovery interviews with Nordic and German controllers, March-September 2025, specific stats on reconciliation days, missing receipts, and duplicate spend",
+          "page": 2,
+          "url": null
+        }
+      ]
+    },
+    {
+      "name": "traction",
+      "status": "questionable",
+      "summary": "Deck reports EUR 41,300 software MRR plus EUR 9,100 interchange, 34 paying customers, 11% average MoM growth over six months, 71% weekly active rate, 4.1% monthly logo churn, and 106% net revenue retention. These are specific, multi-dimensional figures, but all are self-reported with no external audit or investor-verifiable source, and the median close-time improvement (9.5 to 4.0 days) is explicitly flagged in the deck itself as self-reported by the controller.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "EUR 41,300 MRR as of 30 November 2025; 34 paying customers; 11% average MoM MRR growth across last six months; 71% weekly active rate; 4.1% monthly logo churn; NRR 106%",
+          "page": 7,
+          "url": null
+        }
+      ]
+    },
+    {
+      "name": "business_model_clarity",
+      "status": "questionable",
+      "summary": "Pricing is clearly stated (EUR 14/employee/month with EUR 490 floor, plus 0.40% interchange take), and a median contract value (EUR 1,215 MRR) is given. However, the SAM build uses a blended USD 102k annual contract value across ~61,000 companies, which is roughly 7x the deck's own stated median contract of EUR 1,215 MRR (~EUR 14,580/year) \u2014 the price used in the TAM/SAM build does not appear to reconcile with the price the company actually charges today, and the deck does not explain the gap (e.g. whether it assumes much larger accounts or full interchange capture at maturity).",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "EUR 14 per active employee per month, EUR 490 monthly floor, median contract EUR 1,215 MRR",
+          "page": 8,
+          "url": null
+        },
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "SAM = USD 6.2B at blended USD 102k annual contract value across ~61,000 companies",
+          "page": 5,
+          "url": null
+        }
+      ]
+    },
+    {
+      "name": "cap_table_legal",
+      "status": "red_flag",
+      "summary": "Cap table shows founders holding 71% (Mikkel 38%, Aino 33%), option pool 9% (6% granted), pre-seed angels 8%, and notably 12% held in common stock by the first advisor from a 2024 arrangement made 'before we had counsel.' A 12% stake to a single advisor, granted without legal counsel involved, is an unusually large and procedurally risky allocation that a lead investor will need to examine closely \u2014 it could complicate the cap table, trigger renegotiation, or signal weak early governance discipline.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "Cap table today: founders 71% (Mikkel 38%, Aino 33%), employee option pool 9% (6% granted), pre-seed angels 8%, and 12% held in common stock by our first advisor from a 2024 arrangement made before we had counsel",
+          "page": 10,
+          "url": null
+        }
+      ]
+    },
+    {
+      "name": "ask_and_use_of_funds",
+      "status": "questionable",
+      "summary": "The EUR 3.5M ask against 22 months of runway is allocated 45% engineering, 30% GTM, 15% compliance/licensing, 10% G&A, and is tied to concrete milestones (EUR 250k MRR by month 18, 40 accounting-firm partners, SOC2 + EMI licence). This is a coherent structure, but the 15% compliance allocation for an own EMI licence may understate the cost: external research on Danish EMI licensing indicates a EUR 350,000 statutory minimum initial capital requirement under EMD2, which the deck's compliance/licensing budget line does not explicitly address or reconcile against.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "Use of funds: 45% engineering, 30% go-to-market, 15% compliance and licensing, 10% G&A; EMI licence application filed October 2025, approval assumed within 12 months",
+          "page": 10,
+          "url": null
+        },
+        {
+          "type": "external",
+          "title": "Denmark EMI License \u2013 DFSA Electronic Money Institution Setup",
+          "evidence": "General information on Danish EMI licensing regime and associated capital requirements under EU electronic money regulation",
+          "page": null,
+          "url": "https://prifinance.com/en/payments/emi-license-denmark/"
+        }
+      ]
+    },
+    {
+      "name": "non_obvious_insight",
+      "status": "supported",
+      "summary": "The deck's framing that the buyer compares Thalvik's price to 'half an accountant' (EUR 2,600/month in Denmark) rather than to other software, and that this framing enabled two list-price increases in 14 months with no measurable close-rate impact, is a specific and somewhat contrarian pricing insight rather than a generic market thesis. It is self-reported but concrete and testable against the founder in a meeting.",
+      "sources": []
+    }
+  ],
+  "key_findings": [
+    {
+      "id": "missing-pleo-competitor",
+      "title": "Deck omits Pleo, a same-city, well-funded direct competitor",
+      "risk_level": "high",
+      "pillar": "competitors",
+      "explanation": "The competition slide names SAP Concur, generic ERP add-ons, and spreadsheets, but omits Pleo, a Copenhagen-headquartered spend-management company that external sources describe as offering card issuance, invoice/expense management and NetSuite/Xero integrations to companies from startups to enterprises, with reported debt financing of $43M and 30,000+ customers.",
+      "why_it_matters": "If a well-capitalized, same-city, same-buyer competitor is left off the competitive slide, the investor cannot trust the deck's competitive positioning at face value, and needs to understand directly from the founders why Pleo is not treated as a threat.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "Competition slide lists only SAP Concur, legacy ERP add-ons, and spreadsheets as competitors",
+          "page": 6,
+          "url": null
+        },
+        {
+          "type": "external",
+          "title": "Bulgarian spend management company Payhawk hits $1B valuation. Payhawk competitors include Spendesk, Pleo, Moss, and Soldo. - CB Insights Research",
+          "evidence": "Identifies Pleo as a direct competitor in the same spend-management category",
+          "page": null,
+          "url": "https://www.cbinsights.com/research/payhawk-competitors-spendesk-pleo-moss-soldo/"
+        }
+      ]
+    },
+    {
+      "id": "unverified-founder-bios",
+      "title": "Neither founder's claimed background could be independently verified",
+      "risk_level": "high",
+      "pillar": "founder",
+      "explanation": "Direct name searches for both Mikkel Ravnsborg (claimed ex-Maersk group finance) and Aino Lehtinen (claimed ex-Klarna staff engineer) returned no matching public profiles; the only similarly-named individuals found had unrelated roles, degrees or employers.",
+      "why_it_matters": "Founder-market fit is the headline argument in this deck ('the only team combining a controller who has closed books in this exact segment with an engineering team that has shipped card issuing at scale'); if this narrative cannot be corroborated, the core basis for founder conviction is currently unverified rather than confirmed.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "CEO bio: six years at A.P. Moller-Maersk group finance; CTO bio: nine years payments engineering, four years at Klarna as staff engineer on card-issuing platform",
+          "page": 9,
+          "url": null
+        },
+        {
+          "type": "external",
+          "title": "Mikkel Johansen - A.P. Moller - Maersk | LinkedIn",
+          "evidence": "Only Maersk-affiliated Mikkel profiles found do not match the name Mikkel Ravnsborg",
+          "page": null,
+          "url": "https://www.linkedin.com/in/mikjo/"
+        }
+      ]
+    },
+    {
+      "id": "som-not-derivable",
+      "title": "SOM implies capturing ~47% of the stated SAM within three years",
+      "risk_level": "high",
+      "pillar": "tam",
+      "explanation": "The deck's SOM (USD 2.9B within three years) against its own stated SAM (USD 6.2B) implies capturing roughly 47% of the entire addressable market from a current base of ~EUR 50k combined monthly revenue, with no bridging model shown for how accountant-channel distribution gets there.",
+      "why_it_matters": "A SOM this large a share of SAM this fast is not a credible base case and suggests the market-sizing slide was built to produce an impressive top-line number rather than a defensible bottom-up plan; the investor should press for the actual bridge (customer count, ACV, channel conversion rate) behind the year-three number.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "SAM USD 6.2B; SOM USD 2.9B within three years on the back of accountant-channel distribution",
+          "page": 5,
+          "url": null
+        }
+      ]
+    },
+    {
+      "id": "acv-tam-mismatch",
+      "title": "TAM/SAM pricing assumption is far above today's actual median contract",
+      "risk_level": "medium",
+      "pillar": "tam",
+      "explanation": "The SAM calculation uses a blended USD 102k annual contract value per company, while the deck's own current median contract is EUR 1,215 MRR (~EUR 14,580/year) \u2014 roughly 7x lower than the ACV used in the market model, with no reconciliation shown.",
+      "why_it_matters": "If the market-sizing ACV is not reachable from the pricing model the company actually uses today, the SAM figure overstates the credible reachable revenue pool, which affects how much confidence the investor should place in the market-size slide.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "SAM built on blended USD 102k annual contract value across ~61,000 companies",
+          "page": 5,
+          "url": null
+        },
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "Median contract today is EUR 1,215 MRR",
+          "page": 8,
+          "url": null
+        }
+      ]
+    },
+    {
+      "id": "advisor-equity-no-counsel",
+      "title": "12% of the cap table held by an advisor from a pre-counsel 2024 arrangement",
+      "risk_level": "medium",
+      "pillar": "legal",
+      "explanation": "The cap table shows 12% held in common stock by the company's first advisor, granted under an arrangement made in 2024 before the company had legal counsel, alongside a 9% option pool (6% granted) and 71% founder ownership.",
+      "why_it_matters": "A large, informally-documented advisor equity grant made without counsel is a common source of later cap-table disputes, unexpected dilution, or renegotiation demands, and a lead investor will typically require this be cleaned up or clearly explained before closing.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Thalvik seed deck",
+          "evidence": "12% held in common stock by our first advisor from a 2024 arrangement made before we had counsel",
+          "page": 10,
+          "url": null
+        }
+      ]
+    }
+  ],
+  "founder_questions": [
+    {
+      "question": "We could not find any public record (LinkedIn, press, alumni listings) confirming your prior roles at Maersk or Klarna. Can you walk us through your specific dates of employment, manager names, and a reference we could speak to at each company?",
+      "based_on_finding_ids": [
+        "unverified-founder-bios"
+      ]
+    },
+    {
+      "question": "Pleo is headquartered in Copenhagen, serves the same 150-1,500 employee segment, and already offers card issuance plus NetSuite/Xero integration. Why is Pleo not on your competitive slide, and specifically, why can't Pleo build the same tenant-specific coding model you're describing as your wedge?",
+      "based_on_finding_ids": [
+        "missing-pleo-competitor"
+      ]
+    },
+    {
+      "question": "Your SAM assumes a blended USD 102k annual contract value, but your current median customer pays EUR 1,215 MRR (~EUR 14.6k/year) \u2014 about a seventh of that. What specific mix of larger accounts, expanded interchange capture, or pricing changes bridges that gap, and by what year do you expect the median account to reach that level?",
+      "based_on_finding_ids": [
+        "acv-tam-mismatch"
+      ]
+    },
+    {
+      "question": "Your SOM implies capturing roughly half of your stated SAM within three years from today's ~EUR 50k combined monthly revenue. Walk us through the actual customer-count and channel-conversion assumptions behind that number, quarter by quarter.",
+      "based_on_finding_ids": [
+        "som-not-derivable"
+      ]
+    },
+    {
+      "question": "The 12% advisor equity grant was made before you had legal counsel. Is that grant documented in a binding agreement today, is it subject to vesting or clawback, and has counsel now reviewed and confirmed it is enforceable as-is?",
+      "based_on_finding_ids": [
+        "advisor-equity-no-counsel"
+      ]
+    }
+  ]
+}

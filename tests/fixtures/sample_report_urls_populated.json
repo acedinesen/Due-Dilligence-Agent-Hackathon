@@ -1,0 +1,320 @@
+{
+  "company": {
+    "name": "Verdiq",
+    "one_liner": "Verdiq turns raw utility and sensor data into audit-ready CSRD emissions reports for mid-market European manufacturers.",
+    "website_url": "https://www.verdiq.io/product"
+  },
+  "overview": "Verdiq (Copenhagen, founded 2024) sells carbon-accounting software to mid-market European manufacturers facing CSRD reporting obligations. The product ingests utility invoices, ERP purchase records and factory sensor feeds, maps them to GHG Protocol scopes, and emits an assurance-ready report. The deck claims 11 paying customers, DKK 2.4M ARR and a 4-month average sales cycle. The wedge — Scope 3 purchased-goods data that mid-market firms cannot assemble by hand — is credible and unusually specific, and the founding team has directly relevant regulatory and industrial-data experience. The two material open questions are market sizing (a top-down TAM with no bottom-up cross-check) and the omission of two well-funded direct competitors from the competitive landscape.",
+  "tam_sam_som": {
+    "tam_stated": "EUR 8.4B by 2030 (global sustainability reporting software)",
+    "tam_methodology": "top_down",
+    "sam_stated": "EUR 1.1B (EU manufacturers, 250-3000 employees)",
+    "som_stated": "EUR 46M by 2029",
+    "som_pct_of_sam_flagged": false,
+    "external_validation_present": true,
+    "summary": "TAM is a single top-down analyst figure for the whole sustainability-reporting category, with no bottom-up cross-check from seat or account economics — so it overstates the addressable opportunity for a CSRD-specific product. The SAM narrowing to EU manufacturers of 250-3000 employees is well argued and matches the CSRD wave-two scope, and the SOM implies roughly 4% of SAM, which is inside the credible band. The deck cites a third-party market report for the TAM figure but not for the SAM derivation.",
+    "sources": [
+      {
+        "type": "deck",
+        "title": "Market opportunity slide",
+        "evidence": "TAM EUR 8.4B / SAM EUR 1.1B / SOM EUR 46M funnel graphic with a 2030 horizon.",
+        "page": 7
+      },
+      {
+        "type": "external",
+        "title": "CSRD wave-two scope and reporting timeline",
+        "evidence": "Confirms that EU companies above the 250-employee threshold enter mandatory reporting on the timeline the deck assumes, supporting the SAM boundary.",
+        "url": "https://finance.ec.europa.eu/capital-markets-union-and-financial-markets/company-reporting-and-auditing/company-reporting/corporate-sustainability-reporting_en"
+      }
+    ]
+  },
+  "competitors": {
+    "competitors": [
+      {
+        "name": "Normative",
+        "funding_info": "Raised approximately USD 45M; Stockholm-based",
+        "differentiation_claimed": "Verdiq claims Normative targets enterprise buyers and cannot ingest factory-floor sensor data without a services engagement.",
+        "is_direct": true,
+        "verified_externally": true
+      },
+      {
+        "name": "Plan A",
+        "funding_info": "Raised approximately USD 40M; Berlin-based",
+        "differentiation_claimed": "Not named in the deck. Overlaps directly on EU mid-market carbon accounting with a comparable CSRD module.",
+        "is_direct": true,
+        "verified_externally": true
+      },
+      {
+        "name": "In-house spreadsheets plus a Big Four advisory engagement",
+        "funding_info": null,
+        "differentiation_claimed": "Verdiq positions itself as roughly an order of magnitude cheaper than a recurring consultancy engagement, with continuous rather than annual data collection.",
+        "is_direct": false,
+        "verified_externally": true
+      }
+    ],
+    "why_now_why_us": "CSRD wave-two brings a large cohort of mid-market manufacturers into mandatory assured reporting for the first time, and unlike enterprise buyers they have no internal sustainability function to absorb the work.",
+    "missing_direct_competitor_flag": true,
+    "summary": "The deck names one direct competitor (Normative) and frames the rest of the landscape as consultancies and spreadsheets. Independent checking surfaces at least one further well-funded direct competitor, Plan A, attacking the same EU mid-market segment with a comparable CSRD module. The sensor-ingestion differentiation is real and defensible, but the competitive slide understates how contested this segment already is.",
+    "sources": [
+      {
+        "type": "deck",
+        "title": "Competitive landscape slide",
+        "evidence": "Two-by-two positioning chart listing Normative and three consultancies; no other venture-funded software competitor appears.",
+        "page": 11
+      },
+      {
+        "type": "external",
+        "title": "Plan A carbon accounting and CSRD product pages",
+        "evidence": "Plan A markets a CSRD reporting module to European mid-market companies, overlapping the segment the deck presents as uncontested by software vendors.",
+        "url": "https://plana.earth/"
+      }
+    ]
+  },
+  "founder_profile": {
+    "categories": [
+      {
+        "category": "industry_experience",
+        "status": "supported",
+        "evidence": "Astrid Lindqvist spent six years as a sustainability-reporting lead at a Nordic industrial group, personally producing the GHG inventories the product now automates."
+      },
+      {
+        "category": "execution_strength",
+        "status": "supported",
+        "evidence": "Eleven paying customers and a production sensor-ingestion pipeline within roughly fourteen months of founding, on pre-seed capital."
+      },
+      {
+        "category": "track_record",
+        "status": "questionable",
+        "evidence": "Neither founder has previously built or exited a venture-backed company; this is a first-time founding team in a category where incumbents are already Series B."
+      },
+      {
+        "category": "team_leadership",
+        "status": "unknown",
+        "evidence": "The deck states a team of nine but gives no detail on hiring, retention or how engineering is led."
+      },
+      {
+        "category": "network_strength",
+        "status": "supported",
+        "evidence": "Design partners were sourced through the CTO's former employer and two Danish industry associations, which also produced the first three paying customers."
+      }
+    ],
+    "founder_market_fit": "strong",
+    "summary": "Founder-market fit is strong and specific rather than generic: the CEO did the manual version of this job inside a manufacturer for six years, and the CTO built industrial data pipelines at scale. The gap is company-building experience — neither has scaled an organisation before, which matters against competitors already two rounds ahead. Team leadership is genuinely unassessed from the material provided.",
+    "sources": [
+      {
+        "type": "deck",
+        "title": "Team slide",
+        "evidence": "Two founders plus seven employees; bios list prior employers and tenure but no prior founding experience.",
+        "page": 14
+      },
+      {
+        "type": "external",
+        "title": "Astrid Lindqvist LinkedIn profile",
+        "evidence": "Confirms the six-year sustainability-reporting tenure and the reporting-lead title claimed in the deck.",
+        "url": "https://www.linkedin.com/in/astrid-lindqvist-verdiq/"
+      }
+    ]
+  },
+  "founders": [
+    {
+      "name": "Astrid Lindqvist",
+      "bio_one_liner": "Co-founder and CEO; spent six years as sustainability-reporting lead at a Nordic industrial group, building by hand the GHG inventories Verdiq now automates.",
+      "linkedin_url": "https://www.linkedin.com/in/astrid-lindqvist-verdiq/"
+    },
+    {
+      "name": "Mikkel Sorensen",
+      "bio_one_liner": "Co-founder and CTO; former staff data engineer on industrial IoT telemetry, previously ran the sensor-ingestion platform for a Danish wind-turbine operator.",
+      "linkedin_url": "https://www.linkedin.com/in/mikkel-sorensen-verdiq/"
+    }
+  ],
+  "additional_metrics": [
+    {
+      "name": "problem_validation",
+      "status": "supported",
+      "summary": "Eleven paying customers in the named segment, plus two letters of intent, evidence a problem buyers already pay to solve rather than a speculative need.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Traction slide",
+          "evidence": "Logo wall of eleven customers with contract start dates spanning fourteen months.",
+          "page": 9
+        }
+      ]
+    },
+    {
+      "name": "traction",
+      "status": "supported",
+      "summary": "DKK 2.4M ARR with net revenue retention stated above 100% and no churned accounts to date; the cohort is small enough that retention is not yet meaningful.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Traction slide",
+          "evidence": "ARR bridge chart by quarter with expansion revenue broken out.",
+          "page": 9
+        }
+      ]
+    },
+    {
+      "name": "business_model_clarity",
+      "status": "supported",
+      "summary": "Annual per-site subscription with a tiered data-volume component; pricing is published and the sales cycle is stated at four months.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Business model slide",
+          "evidence": "Three published tiers with per-site annual pricing and the data-volume add-on.",
+          "page": 10
+        }
+      ]
+    },
+    {
+      "name": "cap_table_legal",
+      "status": "unknown",
+      "summary": "No cap table, option pool or prior-round terms disclosed in the deck; a pre-seed round is referenced but not detailed.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Ask slide",
+          "evidence": "References a completed pre-seed round without naming investors, amount or instrument.",
+          "page": 16
+        }
+      ]
+    },
+    {
+      "name": "ask_and_use_of_funds",
+      "status": "questionable",
+      "summary": "Raising EUR 3.5M for an 18-month runway, but the allocation splits across sales expansion into three new countries and a Scope 3 data platform rebuild simultaneously, which reads as under-focused for the round size.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Ask slide",
+          "evidence": "Use-of-funds pie: 45% go-to-market across DE/NL/SE, 40% engineering platform rebuild, 15% compliance and assurance partnerships.",
+          "page": 16
+        }
+      ]
+    },
+    {
+      "name": "non_obvious_insight",
+      "status": "supported",
+      "summary": "The insight that mid-market manufacturers fail on Scope 3 purchased-goods data specifically, not on carbon accounting generally, is non-obvious and shapes the whole product wedge.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Problem slide",
+          "evidence": "Breaks reporting failure down by GHG scope and category rather than treating it as one undifferentiated compliance burden.",
+          "page": 4
+        }
+      ]
+    }
+  ],
+  "key_findings": [
+    {
+      "id": "F1",
+      "title": "TAM is top-down only, with no bottom-up cross-check",
+      "risk_level": "medium",
+      "pillar": "tam",
+      "explanation": "The EUR 8.4B TAM is a single analyst figure for the entire global sustainability-reporting software category. Nothing in the deck derives the opportunity upward from the number of in-scope EU manufacturers times realistic annual contract value, so the headline number is not tied to Verdiq's actual product or pricing.",
+      "why_it_matters": "A top-down-only TAM tends to hide whether the reachable segment can support a venture-scale outcome. The SAM is well argued, so the fix is small: a bottom-up build from in-scope accounts and published pricing would either confirm the opportunity or reveal a ceiling before the round is priced.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Market opportunity slide",
+          "evidence": "TAM is attributed to a third-party market report; no accounts-times-ACV derivation appears anywhere in the deck.",
+          "page": 7
+        }
+      ]
+    },
+    {
+      "id": "F2",
+      "title": "A well-funded direct competitor is absent from the landscape slide",
+      "risk_level": "high",
+      "pillar": "competitors",
+      "explanation": "The competitive slide names Normative as the only software competitor and frames everyone else as consultancies. Plan A, which has raised roughly USD 40M and markets a CSRD module to European mid-market companies, is not mentioned. That is the same buyer, the same regulation and a comparable product.",
+      "why_it_matters": "Omitting a competitor of that size is either an awareness gap or a positioning choice, and the two have very different implications for how the team will handle a contested sales cycle. Worth asking directly, because the answer reveals how they actually think about the landscape.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Competitive landscape slide",
+          "evidence": "Two-by-two chart with Normative and three consultancies; no other funded software vendor shown.",
+          "page": 11
+        },
+        {
+          "type": "external",
+          "title": "Plan A carbon accounting and CSRD product pages",
+          "evidence": "Plan A sells a CSRD reporting module into the European mid-market, overlapping Verdiq's stated segment.",
+          "url": "https://plana.earth/"
+        }
+      ]
+    },
+    {
+      "id": "F3",
+      "title": "Use of funds splits between geographic expansion and a platform rebuild",
+      "risk_level": "medium",
+      "pillar": "ask",
+      "explanation": "The EUR 3.5M ask allocates 45% to entering three new countries and 40% to rebuilding the Scope 3 data platform over the same 18 months. Both are substantial programmes and each would normally absorb most of a seed round on its own.",
+      "why_it_matters": "Running both at once on this round size risks doing neither well, and the sequencing choice is the single most informative thing about how this team prioritises. It is also the easiest item on this list to resolve in conversation.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Ask slide",
+          "evidence": "Use-of-funds pie: 45% go-to-market across DE/NL/SE, 40% engineering platform rebuild, 15% compliance partnerships.",
+          "page": 16
+        }
+      ]
+    },
+    {
+      "id": "F4",
+      "title": "Retention is claimed on a cohort too small to support the claim",
+      "risk_level": "low",
+      "pillar": "traction",
+      "explanation": "Net revenue retention is stated above 100% with zero churn, across eleven accounts whose oldest contract is fourteen months old. Most of those accounts have not yet reached a first renewal decision.",
+      "why_it_matters": "The underlying traction is genuinely good for the stage, so this is a presentation issue rather than a business one. But an NRR figure on a pre-renewal cohort invites a harder look at the rest of the metrics than the deck deserves.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Traction slide",
+          "evidence": "ARR bridge shows expansion revenue and states no churned accounts; contract start dates span fourteen months.",
+          "page": 9
+        }
+      ]
+    },
+    {
+      "id": "F5",
+      "title": "No cap table or prior-round terms disclosed",
+      "risk_level": "medium",
+      "pillar": "legal",
+      "explanation": "The deck references a completed pre-seed round but names no investors, amount, instrument or option pool. Founder ownership after the proposed round cannot be estimated from anything provided.",
+      "why_it_matters": "First-time founders sometimes carry pre-seed terms — heavy convertibles, advisor equity, an oversized SAFE stack — that materially affect what a seed round can be priced at. This needs to be resolved before term-sheet discussions, not after.",
+      "sources": [
+        {
+          "type": "deck",
+          "title": "Ask slide",
+          "evidence": "Pre-seed round mentioned in a single line with no terms, investors or amount.",
+          "page": 16
+        }
+      ]
+    }
+  ],
+  "founder_questions": [
+    {
+      "question": "Walk me through a bottom-up build of your market: how many EU manufacturers are actually in scope for CSRD wave two, and what annual contract value do your existing eleven customers average?",
+      "based_on_finding_ids": ["F1"]
+    },
+    {
+      "question": "Plan A sells a CSRD module into the same mid-market segment with roughly USD 40M raised. How often do you meet them in a deal, and when you do, what makes a buyer choose you?",
+      "based_on_finding_ids": ["F2"]
+    },
+    {
+      "question": "If you had to pick one for the next 18 months — expanding into Germany, the Netherlands and Sweden, or rebuilding the Scope 3 platform — which do you drop, and what breaks if you drop it?",
+      "based_on_finding_ids": ["F3"]
+    },
+    {
+      "question": "How many of your eleven customers have been through a renewal decision, and what did the ones that renewed actually re-sign on?",
+      "based_on_finding_ids": ["F4"]
+    },
+    {
+      "question": "What does the cap table look like today, including the pre-seed instrument, any advisor equity and the option pool, and what founder ownership do you expect after this round?",
+      "based_on_finding_ids": ["F5", "F3"]
+    }
+  ]
+}
