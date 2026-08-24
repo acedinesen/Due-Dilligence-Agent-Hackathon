@@ -59,10 +59,10 @@ Configured by default as:
 
 ```env
 PDF_READER_URL=https://pdfreader-production-29d1.up.railway.app
-PDF_READER_PATH=/parse
+PDF_READER_PATH=/extract?images=none
 ```
 
-`PDF_READER_PATH` is still configurable because only the Railway base URL has been confirmed here. If the service returns a different JSON shape, change only `app/adapters/pdf_reader.py::_normalize()`.
+The route was verified live against the service's own `/openapi.json`: it exposes exactly one endpoint, `POST /extract` (`/parse` returns 404). `images` is a query parameter defaulting to `all`, which makes the service return a per-page base64 JPEG of every slide — 542,777 bytes versus 3,469 for the same 6-page deck — and `PdfReaderClient._normalize()` discards all of it, so `?images=none` is the default here. `PDF_READER_PATH` stays configurable for exactly this reason. If the service returns a different JSON shape, change only `app/adapters/pdf_reader.py::_normalize()`.
 
 ## Supabase
 

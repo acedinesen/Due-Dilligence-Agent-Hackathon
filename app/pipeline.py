@@ -193,17 +193,30 @@ async def run_once(
 
 
 def _require_drive_folder_settings() -> None:
-    """Fail fast at startup if any required Drive folder ID is unset."""
+    """Fail fast at startup if any required Drive folder ID is unset.
+
+    Blank counts as unset, and that is the whole point of this function. A bare
+    `DRIVE_REVIEW_ID=` line in .env reaches pydantic-settings as `""`, not
+    `None`, so a `value is None` test passes it. The failure downstream is
+    silent and expensive: `_dest_folder_for_flag` returns `""`, the falsy
+    `if dest_folder_id:` skips the move, and the deck is left in Inbox/ — where
+    `list_inbox` finds it again every 45s and re-runs the ~$1 / ~5 min deep dive
+    on it forever. Catching it here, before the loop starts, is the only cheap
+    place to catch it.
+    """
     required = {
         "DRIVE_INBOX_ID": settings.drive_inbox_id,
         "DRIVE_RELEVANT_ID": settings.drive_relevant_id,
         "DRIVE_REVIEW_ID": settings.drive_review_id,
         "DRIVE_NOT_RELEVANT_ID": settings.drive_not_relevant_id,
     }
-    missing = [name for name, value in required.items() if value is None]
+    missing = [name for name, value in required.items() if not (value or "").strip()]
     if missing:
         raise RuntimeError(
-            f"Missing required Drive folder setting(s): {', '.join(missing)}"
+            "Missing or blank required Drive folder setting(s): "
+            f"{', '.join(missing)}. Set each to a real Drive folder ID (see "
+            "scripts/setup_drive_folders.py) — a present-but-empty value would "
+            "leave decks in Inbox/ and re-run the deep dive on every poll."
         )
 
 

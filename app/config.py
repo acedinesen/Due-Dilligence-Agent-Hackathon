@@ -6,17 +6,20 @@ class Settings(BaseSettings):
 
     # Existing Railway PDF ingestion service.
     pdf_reader_url: str = "https://pdfreader-production-29d1.up.railway.app"
-    # Keep configurable until the reader's exact route is confirmed.
-    pdf_reader_path: str = "/parse"
+    # Verified live against the service's own OpenAPI schema (2026-08-24): the
+    # Railway reader exposes exactly one route, `POST /extract`. `/parse` returns
+    # 404, which app/pipeline.py swallows per-file, so every deck silently sat in
+    # Drive Inbox/ forever. Kept configurable because the query string rides along
+    # here: `images` defaults to `all`, which returns per-page base64 JPEGs that
+    # PdfReaderClient._normalize() throws away (measured 542,777 bytes vs 3,469
+    # for the same 6-page text deck), so triage pays for a payload it never reads.
+    pdf_reader_path: str = "/extract?images=none"
     pdf_reader_timeout_seconds: float = 90.0
 
+    # Used by both Claude calls: Track A's cheap triage pre-filter
+    # (app/triage.py) and Track B's deep-research agent (app/diligence.py).
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-5"
-
-    # Triage LLM call (app/triage.py) — routed through OpenRouter instead of
-    # Anthropic directly, so a free model can be used for the cheap pre-filter.
-    openrouter_api_key: str | None = None
-    openrouter_model: str = "nvidia/nemotron-3.5-lightning:free"
 
     # Track C — Attio CRM delivery (app/adapters/attio_client.py).
     attio_api_key: str | None = None
