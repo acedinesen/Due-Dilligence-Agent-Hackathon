@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from typing import Any
 
+import httpx
 from anthropic import AsyncAnthropic
 from pydantic import ValidationError
 
@@ -9,7 +12,20 @@ from app.config import settings
 from app.models import FirmProfile, ParsedDeck, TriageResult
 
 # Fallback only — the real value comes from settings.anthropic_model (.env).
-DEFAULT_MODEL = "claude-sonnet-5"
+DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5"
+
+# Fallback only — the real value comes from settings.openrouter_model (.env).
+# Picked from https://openrouter.ai/api/v1/models filtered to pricing=0 and
+# supported_parameters includes "structured_outputs" (checked live 2026-08-24).
+# Two other free/structured candidates were tried against this same schema and
+# both failed: z-ai/glm-5.2:free hit a shared-pool 429 twice in a row, and
+# liquid/lfm-2.5-2.6b:free ignored the deck entirely and returned a placeholder
+# ("schema_not_provided") after 749 hidden reasoning tokens. This model, with
+# reasoning disabled (see REASONING_DISABLED below), returned valid,
+# schema-conforming JSON on 9/9 live calls across three different decks.
+DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # TriageResult is two fields (a 3-value enum + a string), so grammar-constrained
 # decoding needs a handful of output tokens. 1024 leaves room for a full-sentence
@@ -39,6 +55,10 @@ TOTAL_TIMEOUT_SECONDS = 30.0
 # the deck stays in Drive Inbox/ and is picked up on the next poll — so it is
 # cheaper to give up quickly than to sit inside a retry backoff.
 MAX_RETRIES = 1
+# Backoff between the OpenRouter attempt and its one retry. Only applied on a
+# transient-looking failure (429 / 5xx) — a 4xx auth or schema error is retried
+# too since the retry is single-shot and cheap, but will fail identically.
+RETRY_BACKOFF_SECONDS = 2.0
 
 # Deck text is truncated before it reaches the prompt. The old code interpolated
 # `full_text` unbounded, so one 300-page PDF could blow past the context window
@@ -47,6 +67,30 @@ MAX_RETRIES = 1
 # signal (market, team, traction, ask) lives in the early slides regardless.
 MAX_DECK_CHARS = 20_000
 _TRUNCATION_MARKER = "\n\n[... deck text truncated for triage ...]"
+
+_TRIAGE_JSON_SCHEMA: dict[str, Any] = {
+    "name": "triage_result",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "flag": {"type": "string", "enum": ["relevant", "review", "not_relevant"]},
+            "reason": {"type": "string"},
+        },
+        "required": ["flag", "reason"],
+        "additionalProperties": False,
+    },
+}
+
+# Verified live (2026-08-24) against nvidia/nemotron-3-super-120b-a12b:free:
+# without this, the model spends its entire completion budget on a hidden
+# chain-of-thought (500+ tokens) and either gets cut off mid-object
+# (finish_reason="length", malformed doubled-brace JSON) or never reaches the
+# schema at all. With reasoning disabled it answers directly, in-schema, in
+# under 4 seconds every time. This is the fix for the exact failure class the
+# previous OpenRouter attempt hit (malformed JSON, null-ish content) — that
+# attempt never disabled reasoning.
+REASONING_DISABLED: dict[str, Any] = {"enabled": False}
 
 
 class TriageError(RuntimeError):
@@ -57,34 +101,159 @@ class TriageAgent:
     """Cheap, fast pre-filter that runs on every inbound deck.
 
     This is NOT the deep-research agent (that's Track B). Per
-    docs/track-a-drive-trigger.md step 3 it is exactly **one**
-    `client.messages.parse(..., output_format=TriageResult)` call: no web
-    search, no tools of any kind, no multi-turn loop. Giving this call research
-    tools would defeat the entire point of a pre-filter that runs on the decks
-    that get rejected too.
+    docs/track-a-drive-trigger.md step 3 it is exactly one structured-output
+    call: no web search, no tools of any kind, no multi-turn loop. Giving this
+    call research tools would defeat the entire point of a pre-filter that runs
+    on the decks that get rejected too.
 
-    Structured output comes from grammar-constrained decoding
-    (`output_format=TriageResult`), which is why there is no JSON-scraping
-    fallback here — the model cannot emit prose around the object. Unlike
-    Track B's `DiligenceReport`, this schema is two fields, so the API's
-    "compiled grammar is too large" limit is very unlikely to apply -- but that
-    is NOT yet confirmed against the live API: every attempt so far was rejected
-    at authentication before the request reached grammar compilation. Confirm it
-    with one real call as soon as a valid key is available.
+    Provider is switchable via `settings.triage_provider` ("openrouter" or
+    "anthropic") — this is the second time this call has moved between the two
+    in one day, so the switch is a one-line config change rather than a redo.
+
+    * "openrouter" (current default): a free-tier model via OpenRouter's
+      OpenAI-compatible chat/completions endpoint, $0 per call. Structured
+      output comes from `response_format: json_schema` with `strict: true`,
+      and reasoning is explicitly disabled (see REASONING_DISABLED) — without
+      that the model burns its whole budget on hidden chain-of-thought and
+      never emits valid JSON. Quality is lower than Claude — this is a real
+      cost/quality tradeoff, accepted knowingly for the pre-filter stage only.
+    * "anthropic": one `client.messages.parse(..., output_format=TriageResult)`
+      call on claude-sonnet-5. Structured output comes from grammar-constrained
+      decoding, so there is no JSON-scraping fallback here — the model cannot
+      emit prose around the object.
     """
 
     def __init__(
         self,
-        client: AsyncAnthropic | None = None,
+        client: Any | None = None,
         model: str | None = None,
+        provider: str | None = None,
     ) -> None:
         # Built lazily so importing this module — and constructing the agent at
         # app/pipeline startup — never requires an API key.
         self._client = client
-        self._model = model or settings.anthropic_model or DEFAULT_MODEL
+        self._provider = provider or settings.triage_provider
+        self._model = model or self._default_model()
+
+    def _default_model(self) -> str:
+        if self._provider == "anthropic":
+            return settings.anthropic_model or DEFAULT_ANTHROPIC_MODEL
+        return settings.openrouter_model or DEFAULT_OPENROUTER_MODEL
 
     async def classify(self, deck: ParsedDeck, firm: FirmProfile | None) -> TriageResult:
-        client = self._get_client()
+        if self._provider == "anthropic":
+            return await self._classify_anthropic(deck, firm)
+        return await self._classify_openrouter(deck, firm)
+
+    # ----------------------------------------------------------- openrouter
+
+    async def _classify_openrouter(
+        self, deck: ParsedDeck, firm: FirmProfile | None
+    ) -> TriageResult:
+        client = self._get_http_client()
+        prompt = self._build_prompt(deck, firm)
+        payload = {
+            "model": self._model,
+            "messages": [{"role": "user", "content": prompt}],
+            "response_format": {"type": "json_schema", "json_schema": _TRIAGE_JSON_SCHEMA},
+            "reasoning": REASONING_DISABLED,
+            "max_tokens": TRIAGE_MAX_TOKENS,
+        }
+        headers = {
+            "Authorization": f"Bearer {self._openrouter_api_key()}",
+            "Content-Type": "application/json",
+        }
+
+        last_error: Exception | None = None
+        for attempt in range(1, MAX_RETRIES + 2):
+            try:
+                async with asyncio.timeout(TOTAL_TIMEOUT_SECONDS):
+                    response = await client.post(OPENROUTER_URL, headers=headers, json=payload)
+                response.raise_for_status()
+                body = response.json()
+                return self._parse_openrouter_body(body, deck)
+            except TimeoutError as exc:
+                last_error = TriageError(
+                    f"Triage of {deck.filename!r} exceeded {TOTAL_TIMEOUT_SECONDS}s via "
+                    "OpenRouter. This call is meant to take a few seconds; treat a "
+                    "timeout as an API problem, not a slow deck. The deck stays in "
+                    "Drive Inbox/ and is retried on the next poll."
+                )
+            except httpx.HTTPStatusError as exc:
+                last_error = TriageError(
+                    f"OpenRouter returned {exc.response.status_code} for "
+                    f"{deck.filename!r}: {exc.response.text[:500]}"
+                )
+            except (httpx.HTTPError, json.JSONDecodeError, KeyError, ValueError) as exc:
+                last_error = TriageError(
+                    f"OpenRouter triage call failed for {deck.filename!r}: {exc}"
+                )
+
+            if attempt <= MAX_RETRIES:
+                await asyncio.sleep(RETRY_BACKOFF_SECONDS)
+
+        assert last_error is not None
+        raise last_error
+
+    def _parse_openrouter_body(self, body: dict[str, Any], deck: ParsedDeck) -> TriageResult:
+        if "error" in body:
+            raise TriageError(
+                f"OpenRouter returned an error for {deck.filename!r}: {body['error']}"
+            )
+
+        choices = body.get("choices") or []
+        if not choices:
+            raise TriageError(f"OpenRouter returned no choices for {deck.filename!r}: {body!r}")
+
+        message = choices[0].get("message") or {}
+        content = message.get("content")
+        if not content:
+            raise TriageError(
+                f"OpenRouter returned empty content for {deck.filename!r} "
+                f"(finish_reason={choices[0].get('finish_reason')!r}). No flag was "
+                "produced, so the deck must not be filed or handed downstream."
+            )
+
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise TriageError(
+                f"OpenRouter content for {deck.filename!r} was not valid JSON "
+                f"(finish_reason={choices[0].get('finish_reason')!r}): {content!r}"
+            ) from exc
+
+        try:
+            return TriageResult.model_validate(parsed)
+        except ValidationError as exc:
+            raise TriageError(
+                f"OpenRouter output for {deck.filename!r} did not validate against "
+                f"TriageResult: {exc}"
+            ) from exc
+
+    def _get_http_client(self) -> Any:
+        if self._client is not None:
+            return self._client
+        self._client = httpx.AsyncClient(timeout=TRANSPORT_TIMEOUT_SECONDS)
+        return self._client
+
+    @staticmethod
+    def _openrouter_api_key() -> str:
+        api_key = (settings.openrouter_api_key or "").strip()
+        if not api_key:
+            raise TriageError(
+                "OPENROUTER_API_KEY is not set, so the triage agent cannot run. Add "
+                "OPENROUTER_API_KEY=<your key> to .env (see .env.example) or set it as "
+                "an environment variable, then retry. Nothing else is missing — the "
+                "deck was parsed fine."
+            )
+        return api_key
+
+    # ------------------------------------------------------------- anthropic
+
+    async def _classify_anthropic(
+        self, deck: ParsedDeck, firm: FirmProfile | None
+    ) -> TriageResult:
+        client = self._get_anthropic_client()
         prompt = self._build_prompt(deck, firm)
 
         try:
@@ -122,9 +291,7 @@ class TriageAgent:
 
         return result
 
-    # ---------------------------------------------------------------- client
-
-    def _get_client(self) -> AsyncAnthropic:
+    def _get_anthropic_client(self) -> AsyncAnthropic:
         if self._client is not None:
             return self._client
 

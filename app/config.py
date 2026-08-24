@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,10 +18,22 @@ class Settings(BaseSettings):
     pdf_reader_path: str = "/extract?images=none"
     pdf_reader_timeout_seconds: float = 90.0
 
-    # Used by both Claude calls: Track A's cheap triage pre-filter
-    # (app/triage.py) and Track B's deep-research agent (app/diligence.py).
+    # Required by Track B's deep-research agent (app/diligence.py) always, and
+    # by Track A's triage pre-filter (app/triage.py) only when
+    # triage_provider="anthropic".
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-5"
+
+    # Which provider app/triage.py's cheap pre-filter call uses. "openrouter"
+    # is $0/call but lower quality and needs `reasoning: {"enabled": false}` to
+    # produce valid JSON at all (see app/triage.py). "anthropic" is
+    # messages.parse(output_format=TriageResult) on anthropic_model, ~cents a
+    # call. Track B's deep-dive always uses Anthropic regardless of this
+    # setting — OpenRouter cannot proxy Anthropic's server-side web_search tool
+    # that Track B's evidence rule depends on.
+    triage_provider: Literal["anthropic", "openrouter"] = "openrouter"
+    openrouter_api_key: str | None = None
+    openrouter_model: str = "nvidia/nemotron-3-super-120b-a12b:free"
 
     # Track C — Attio CRM delivery (app/adapters/attio_client.py).
     attio_api_key: str | None = None
