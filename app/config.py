@@ -11,12 +11,15 @@ class Settings(BaseSettings):
     pdf_reader_timeout_seconds: float = 90.0
 
     anthropic_api_key: str | None = None
-    anthropic_model: str = ""
+    anthropic_model: str = "claude-sonnet-5"
 
     # Triage LLM call (app/triage.py) — routed through OpenRouter instead of
     # Anthropic directly, so a free model can be used for the cheap pre-filter.
     openrouter_api_key: str | None = None
     openrouter_model: str = "nvidia/nemotron-3.5-lightning:free"
+
+    # Track C — Attio CRM delivery (app/adapters/attio_client.py).
+    attio_api_key: str | None = None
 
     supabase_url: str | None = None
     supabase_key: str | None = None
