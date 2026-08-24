@@ -106,7 +106,7 @@ class DiligenceReport(BaseModel):
     founder_questions: list[FounderQuestion] = Field(max_length=5)
 ```
 
-(`TamSamSomBreakdown`, `CompetitorAnalysis`, `FounderProfile`, `MetricResult`, `Finding.pillar` are unchanged from v1 — see git history of this file if you need the exact class bodies again, or just re-derive them from `docs/data-extraction.md` per the qualitative-only rule above.)
+(`TamSamSomBreakdown`, `CompetitorAnalysis`, `FounderProfile`, `MetricResult`, `Finding.pillar` are unchanged from v1. The full, current, consolidated class bodies — this is the single source of truth — are inlined in each of the three track files below, since each is meant to be opened standalone in its own session.)
 
 ### Verification checklist
 
@@ -125,87 +125,13 @@ class DiligenceReport(BaseModel):
 
 ## Phase 2 — Parallel Tracks (3 people, fully independent once Phase 1 is committed)
 
-### Track A — Drive Trigger, Triage, and Flagging
+Each track now has its own fully standalone plan file — open the linked file directly in that person's session; it restates the project context, the frozen contract, and doesn't require this master file to be open alongside it.
 
-**Owner:** Person 1
-**Files:** new `app/adapters/drive_store.py`, new `app/triage.py`, `app/adapters/pdf_reader.py` (reused, not modified unless the Railway contract changed)
+- **[Track A — Drive Trigger, Triage & Flagging](track-a-drive-trigger.md)** (Owner: Person 1) — watches the Drive `Inbox/` folder, runs a cheap triage classification, moves the file into `Relevant/`/`Review/`/`Not-Relevant/`. `app/adapters/drive_store.py`, `app/triage.py`.
+- **[Track B — Deep-Dive Analysis Agent](track-b-deep-analysis.md)** (Owner: Person 2) — the Claude research agent: TAM/competitors/founder profile against pre-selected firm criteria, plus company/founder summary fields for delivery. `app/diligence.py`.
+- **[Track C — Attio + Slack Delivery](track-c-delivery.md)** (Owner: Person 3) — pushes a finished report to Attio and posts the 4-field Slack notification. `app/adapters/attio_client.py`, `app/adapters/slack_notifier.py`.
 
-**What to implement:**
-1. Create the four Drive folders if absent (`create_file` with `mimeType: application/vnd.google-apps.folder`): `Inbox`, `Relevant`, `Review`, `Not-Relevant`. Record their folder IDs (env vars: `DRIVE_INBOX_ID`, `DRIVE_RELEVANT_ID`, `DRIVE_REVIEW_ID`, `DRIVE_NOT_RELEVANT_ID`).
-2. `app/adapters/drive_store.py`: a small adapter wrapping the Google Drive MCP tools —
-   - `list_inbox() -> list[file]` via `search_files(query="parentId = '<inbox_id>'")`
-   - `download(file_id) -> bytes` via `download_file_content`
-   - `move(file_id, dest_folder_id)` via `update_file(fileId=file_id, parentId=dest_folder_id)` — confirmed this replaces the existing parent (i.e., moves, not copies).
-3. `app/triage.py`: a cheap, fast `TriageAgent` — **one** Claude call (no web search, no multi-step research), given the parsed deck text + the pipeline's fixed `FirmProfile.criteria`, that returns a `TriageResult` (`client.messages.parse(output_format=TriageResult)`). This is deliberately cheaper/faster than Track B's deep-dive — don't reuse the expensive research pipeline here.
-4. The poller (can live in `app/pipeline.py` alongside Track A's code, or Track A can stub the deep-dive call as a TODO for Phase 3 to wire in):
-   - Poll `Inbox/` on an interval (e.g. every 30–60s via a simple `while True: ...; time.sleep(N)` loop, or a Railway cron job).
-   - For each new file: download → parse via existing `PdfReaderClient` → triage → `move()` to the matching folder.
-   - No dedup database needed — a single sequential poller naturally can't double-process a file, since a moved file no longer matches the `Inbox/` query on the next poll.
-
-**Docs to cite:** Phase 0 above (Drive tool facts); `docs/BUILD_PLAN.md` §"Step 1" (PDF reader contract, unchanged); `app/adapters/pdf_reader.py`.
-
-**Verification:**
-- Drop a real pitch-deck PDF into the `Inbox/` folder manually; confirm the poller picks it up, calls the Railway PDF reader successfully, and the file ends up in exactly one of `Relevant/`, `Review/`, `Not-Relevant/` within one poll interval.
-- Confirm a `not_relevant` file does NOT trigger any downstream call (log this explicitly so it's demoable).
-- Confirm re-running the poller after a file has moved does not re-process it.
-
-**Anti-pattern guards:** don't build real Gmail push/pull for this hackathon (Phase 0 already ruled this out); don't run the expensive web-search deep-dive inside the triage call; don't invent a `move`/`watch` Drive tool that doesn't exist — `update_file`'s `parentId` is the only move primitive available.
-
----
-
-### Track B — Deep-Dive Analysis Agent
-
-**Owner:** Person 2
-**Files:** new `app/diligence.py`, `app/config.py`, `requirements.txt`
-
-This is almost entirely the same work as v1's Track B — if that was already built, extend it; if not, build it fresh. The only new requirement is populating `company` and `founders` (Phase 1's new fields) using web-search-grounded facts, since Slack/Attio need them.
-
-**What to implement:**
-1. `pip install anthropic`; add to `requirements.txt`; set `app/config.py` `anthropic_model` default to `"claude-sonnet-5"`.
-2. `ClaudeDiligenceAgent.analyze(deck: ParsedDeck, firm: FirmProfile | None) -> DiligenceReport` in `app/diligence.py`, matching the `DiligenceAgent` Protocol in `app/agent.py`.
-3. Two-call pattern:
-   - **Research call:** `client.messages.create(..., tools=[{"type": "web_search_20260209", "name": "web_search"}])`, system prompt scoped to BUILD_PLAN.md §6 (TAM, competitors, founder) **plus** finding the company's website URL and each founder's LinkedIn URL and a one-line bio — these three are new requirements driven by the Slack notification spec.
-   - **Structured extraction call:** `client.messages.parse(model=..., messages=[...], output_format=DiligenceReport)` → `response.parsed_output`.
-4. **Pitfall:** `client.messages.parse` runs full pydantic validation client-side, including `Source`'s custom cross-field validator — wrap in try/except and retry once with a corrective message if validation fails (e.g. an external source missing a URL).
-5. Load the firm profile once at pipeline startup from `PIPELINE_FIRM_PROFILE` env var (default `generic_seed`) via the existing `load_firm()` — no per-request firm selection anymore.
-6. If a founder's LinkedIn URL or the company website can't be found via web search, leave the field `None` rather than guessing — Track C's Slack message must handle missing links gracefully (see Track C).
-7. Develop against `tests/fixtures/sample_deck.json` from Phase 1 — don't block on Track A's live Drive polling.
-
-**Docs to cite:** `docs/data-extraction.md` (qualitative reading, per Phase 1); `docs/BUILD_PLAN.md` §5, §6, §8; `app/agent.py`; `app/models.py`.
-
-**Verification:**
-- `ClaudeDiligenceAgent.analyze()` against the fixture deck produces a valid `DiligenceReport` with ≤5 findings, ≤5 questions, every external `Source` carrying a real-looking URL.
-- `company.one_liner`, `company.website_url` (or `None`), and at least one `FounderSummary` are populated for a real sample deck with a findable founder LinkedIn presence.
-- Generic (no firm profile edge case aside — firm is now always loaded from env, so just confirm the pipeline still runs if `PIPELINE_FIRM_PROFILE` is unset and `load_firm(None)` returns `None`).
-
-**Anti-pattern guards:** same as v1 — no multi-agent orchestration, no vector DB, no hand-parsed JSON, no skipped evidence-rule retry, no assumed `web_search_result` field names.
-
----
-
-### Track C — Attio + Slack Delivery
-
-**Owner:** Person 3
-**Files:** new `app/adapters/attio_client.py`, new `app/adapters/slack_notifier.py`
-
-**What to implement:**
-1. **Attio:** before writing any code, fetch `https://developers.attio.com`'s current API reference for creating/updating a company (and person) record and authenticating with an API key — do not guess endpoint paths or field names. Implement `save_to_attio(report: DiligenceReport) -> None` (or return the created record id) in `app/adapters/attio_client.py`, mapping `report.company` (and `report.founders`, if Attio's schema supports a linked person/founder object) onto whatever Attio's verified object schema requires.
-2. **Slack:** for demo speed, use an **Incoming Webhook** (one URL, no bot token/scopes) unless the team already has a Slack app with a bot token set up — check with the team first. Implement `send_slack_notification(report: DiligenceReport) -> None` in `app/adapters/slack_notifier.py`, posting exactly the four required fields:
-   - Company name (`report.company.name`)
-   - One-liner (`report.company.one_liner`)
-   - Founder bio one-liner + LinkedIn link, per founder in `report.founders` (if a `linkedin_url` is `None`, show the bio without a link rather than a broken/empty link)
-   - Website link (`report.company.website_url`, omit the line if `None`)
-   Use the `slack:block-kit` skill for a clean formatted message (header block for company name, section blocks for the rest) rather than a single unformatted text blob.
-3. Build and test both adapters entirely against `tests/fixtures/sample_report.json` from Phase 1 — never blocked on Track A or B.
-4. Both functions should be called only for `relevant`/`review` decks (Phase 0's triage-gate decision) — that gating logic lives in the Phase 3 pipeline wiring, not inside these adapters; keep these two functions triage-agnostic (just "given a report, deliver it").
-
-**Docs to cite:** Phase 0 above (why there's no MCP shortcut here); `slack:block-kit`, `slack:slack-messaging`, `slack:slack-api` skills (load at build time for exact payload shapes); Attio's live developer docs (fetch at build time, don't rely on any cached knowledge of Attio's API).
-
-**Verification:**
-- Posting `tests/fixtures/sample_report.json` through `send_slack_notification` produces a real message in the team's Slack channel with all 4 fields correctly rendered, including the graceful-missing-link case (test with a fixture variant that has `website_url: null`).
-- `save_to_attio` against the same fixture produces a real, inspectable record in the team's Attio workspace.
-- Both functions raise/log clearly (not silently swallow) on an auth or schema error — this is the last step before the demo's payoff moment, so failures must be loud during development.
-
-**Anti-pattern guards:** don't build a bespoke Slack bot with interactive components — a webhook post is enough for a notification; don't invent Attio field names before checking the docs; no numeric score anywhere in the Slack message or Attio record (Phase 1's resolved decision still applies to the output surface too).
+All three build and verify against fixtures (`tests/fixtures/sample_deck.json`, `tests/fixtures/sample_report.json`) independently — none of them block on each other until Phase 3.
 
 ---
 
