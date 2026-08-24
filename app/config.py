@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     anthropic_model: str = ""
 
+    # Triage LLM call (app/triage.py) — routed through OpenRouter instead of
+    # Anthropic directly, so a free model can be used for the cheap pre-filter.
+    openrouter_api_key: str | None = None
+    openrouter_model: str = "nvidia/nemotron-3.5-lightning:free"
+
     supabase_url: str | None = None
     supabase_key: str | None = None
     supabase_bucket: str = "pitch-decks"
